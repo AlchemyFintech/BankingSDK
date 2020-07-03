@@ -268,7 +268,7 @@ namespace BankingSDK.Base.ING
                     }
                     else
                     {
-                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", accessToken.RefreshAccessToken);
+                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", accessToken.RefreshAccessToken, clientToken.client_id);
                         token = $"{refresh.token_type} {refresh.access_token}";
                     }
                 }
@@ -329,7 +329,7 @@ namespace BankingSDK.Base.ING
                     }
                     else
                     {
-                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", accessToken.RefreshAccessToken);
+                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", accessToken.RefreshAccessToken, clientToken.client_id);
                         token = $"{refresh.token_type} {refresh.access_token}";
                     }
                 }
@@ -536,14 +536,14 @@ namespace BankingSDK.Base.ING
             return JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());
         }
 
-        private async Task<BerlinGroupAccessData> GetRefreshToken(string token, string refreshToken)
+        private async Task<BerlinGroupAccessData> GetRefreshToken(string token, string refreshToken, string clientId)
         {
             var content = new StringContent($"grant_type=refresh_token&refresh_token={refreshToken}", Encoding.UTF8, "application/x-www-form-urlencoded");
             var payload = await content.ReadAsStringAsync();
 
             var client = GetClient(payload);
             client.DefaultRequestHeaders.Add("Authorization", token);
-            client.SignRequest(_settings.SigningCertificate, HttpMethod.Post, "/oauth2/token", "Signature", "5ca1ab1e-c0ca-c01a-cafe-154deadbea75");
+            client.SignRequest(_settings.SigningCertificate, HttpMethod.Post, "/oauth2/token", "Signature", clientId);
             var result = await client.PostAsync("/oauth2/token", content);
 
             if (!result.IsSuccessStatusCode)

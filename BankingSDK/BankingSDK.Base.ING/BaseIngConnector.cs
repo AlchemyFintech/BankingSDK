@@ -78,8 +78,8 @@ namespace BankingSDK.Base.ING
                     Currency = x.Currency,
                     Iban = x.Iban,
                     Description = x.Description,
-                    BalancesConsent = _userContextLocal.Tokens.Where(y => y.RefreshAccessToken == x.RefreshAccessToken).Select(c => new ConsentInfo { ConsentId = c.AccessToken, ValidUntil = c.TokenValidUntil }).FirstOrDefault(),
-                    TransactionsConsent = _userContextLocal.Tokens.Where(y => y.RefreshAccessToken == x.RefreshAccessToken).Select(c => new ConsentInfo { ConsentId = c.AccessToken, ValidUntil = c.TokenValidUntil }).FirstOrDefault()
+                    BalancesConsent = _userContextLocal.Tokens.Where(y => y.RefreshAccessToken == x.RefreshAccessToken).Select(c => new ConsentInfo { ConsentId = c.RefreshAccessToken, ValidUntil = c.RefreshTokenValidUntil }).FirstOrDefault(),
+                    TransactionsConsent = _userContextLocal.Tokens.Where(y => y.RefreshAccessToken == x.RefreshAccessToken).Select(c => new ConsentInfo { ConsentId = c.RefreshAccessToken, ValidUntil = c.RefreshTokenValidUntil }).FirstOrDefault()
                 }).ToList();
                 return new BankingResult<List<Account>>(ResultStatus.DONE, "", data, JsonConvert.SerializeObject(data));
             }

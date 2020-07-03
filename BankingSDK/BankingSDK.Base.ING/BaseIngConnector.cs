@@ -262,15 +262,12 @@ namespace BankingSDK.Base.ING
                 {
                     var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ?? throw new ApiCallException("Invalid accountId");
                     var accessToken = _userContextLocal.Tokens.FirstOrDefault(x => x.RefreshAccessToken == account.RefreshAccessToken && x.RefreshTokenValidUntil > DateTime.Now) ?? throw new ApiCallException("Consent invalid or expired");
-                    if (accessToken.TokenValidUntil > DateTime.Now)
+                    if (accessToken.TokenValidUntil < DateTime.Now)
                     {
-                        token = accessToken.FullToken;
+                        await RefreshToken(accessToken, $"{clientToken.token_type} {clientToken.access_token}", clientToken.client_id);
                     }
-                    else
-                    {
-                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", accessToken.RefreshAccessToken, clientToken.client_id);
-                        token = $"{refresh.token_type} {refresh.access_token}";
-                    }
+
+                    token = accessToken.FullToken;
                 }
 
                 var client = GetClient();
@@ -323,15 +320,12 @@ namespace BankingSDK.Base.ING
                 {
                     var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ?? throw new ApiCallException("Invalid accountId");
                     var accessToken = _userContextLocal.Tokens.FirstOrDefault(x => x.RefreshAccessToken == account.RefreshAccessToken && x.RefreshTokenValidUntil > DateTime.Now) ?? throw new ApiCallException("Consent invalid or expired");
-                    if (accessToken.TokenValidUntil > DateTime.Now)
+                    if (accessToken.TokenValidUntil < DateTime.Now)
                     {
-                        token = accessToken.FullToken;
+                        await RefreshToken(accessToken, $"{clientToken.token_type} {clientToken.access_token}", clientToken.client_id);
                     }
-                    else
-                    {
-                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", accessToken.RefreshAccessToken, clientToken.client_id);
-                        token = $"{refresh.token_type} {refresh.access_token}";
-                    }
+
+                    token = accessToken.FullToken;
                 }
 
                 var client = GetClient();
@@ -536,9 +530,9 @@ namespace BankingSDK.Base.ING
             return JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());
         }
 
-        private async Task<BerlinGroupAccessData> GetRefreshToken(string token, string refreshToken, string clientId)
+        private async Task RefreshToken(UserAccessToken accessToken, string token, string clientId)
         {
-            var content = new StringContent($"grant_type=refresh_token&refresh_token={refreshToken}", Encoding.UTF8, "application/x-www-form-urlencoded");
+            var content = new StringContent($"grant_type=refresh_token&refresh_token={accessToken.RefreshAccessToken}", Encoding.UTF8, "application/x-www-form-urlencoded");
             var payload = await content.ReadAsStringAsync();
 
             var client = GetClient(payload);
@@ -551,7 +545,11 @@ namespace BankingSDK.Base.ING
                 throw new Exception(await result.Content.ReadAsStringAsync());
             }
 
-            return JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());
+            var newToken = JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());
+            accessToken.TokenType = newToken.token_type;
+            accessToken.AccessToken = newToken.access_token;
+            accessToken.TokenValidUntil = DateTime.Now.AddSeconds(newToken.expires_in - 60);
+            UserContextChanged = true;
         }
 
         private SdkHttpClient GetClient(string payload = "")

@@ -124,13 +124,13 @@ namespace BankingSDK.Base.ING
                 var clientAuth = await GetClientToken();
                 var client = GetClient();
                 client.DefaultRequestHeaders.Add("Authorization", clientAuth.Token);
-                var scope = "payment-accounts:balances:view%20payment-accounts:transactions:view";
+                var scope = HttpUtility.UrlEncode("payment-accounts:balances:view payment-accounts:transactions:view");
                 var url = $"/oauth2/authorization-server-url?scope={scope}&redirect_uri={model.RedirectUrl}&response_type=code&country_code={_countryCode}";
                 client.SignRequest(_settings.SigningCertificate, HttpMethod.Get, url, "Signature", clientAuth.client_id);
                 var result = await client.GetAsync(url);
 
                 string rawData = await result.Content.ReadAsStringAsync();
-                var redirect = JsonConvert.DeserializeObject<IngRedirect>(rawData).location + $"?client_id={clientAuth.client_id}&scope={scope}&redirect_uri={model.RedirectUrl}&state={model.FlowId}";
+                var redirect = JsonConvert.DeserializeObject<IngRedirect>(rawData).location + $"?client_id={clientAuth.client_id}&scope={scope}&redirect_uri={HttpUtility.UrlEncode(model.RedirectUrl)}&response_type=code&state={HttpUtility.UrlEncode(model.FlowId)}";
 
                 var flowContext = new FlowContext
                 {

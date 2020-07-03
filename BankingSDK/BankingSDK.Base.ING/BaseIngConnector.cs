@@ -124,13 +124,13 @@ namespace BankingSDK.Base.ING
                 var clientAuth = await GetClientToken();
                 var client = GetClient();
                 client.DefaultRequestHeaders.Add("Authorization", clientAuth.Token);
-                var scope = "payment-accounts:balances:view%20payment-accounts:transactions:view";
+                var scope = HttpUtility.UrlEncode("payment-accounts:balances:view payment-accounts:transactions:view");
                 var url = $"/oauth2/authorization-server-url?scope={scope}&redirect_uri={model.RedirectUrl}&response_type=code&country_code={_countryCode}";
                 client.SignRequest(_settings.SigningCertificate, HttpMethod.Get, url, "Signature", clientAuth.client_id);
                 var result = await client.GetAsync(url);
 
                 string rawData = await result.Content.ReadAsStringAsync();
-                var redirect = JsonConvert.DeserializeObject<IngRedirect>(rawData).location + $"?client_id={clientAuth.client_id}&scope={scope}&redirect_uri={model.RedirectUrl}&state={model.FlowId}";
+                var redirect = JsonConvert.DeserializeObject<IngRedirect>(rawData).location + $"?client_id={clientAuth.client_id}&scope={scope}&redirect_uri={HttpUtility.UrlEncode(model.RedirectUrl)}&response_type=code&state={HttpUtility.UrlEncode(model.FlowId)}";
 
                 var flowContext = new FlowContext
                 {
@@ -163,7 +163,7 @@ namespace BankingSDK.Base.ING
 
             var code = query.Get("code");
             var clientToken = await GetClientToken();
-            var customerToken = await GetCustomerToken($"{clientToken.token_type} {clientToken.access_token}", code);
+            var customerToken = await GetCustomerToken($"{clientToken.token_type} {clientToken.access_token}", code, clientToken.client_id);
             var accounts = await GetAccountsAsync(customerToken.Token);
 
             _userContextLocal.Tokens.Add(new UserAccessToken
@@ -251,49 +251,49 @@ namespace BankingSDK.Base.ING
             try
             {
                 var clientToken = await GetClientToken();
-            string token;
+                string token;
 
-            if (SdkApiSettings.IsSandbox)
-            {
-                var customerToken = await GetCustomerToken($"{clientToken.token_type} {clientToken.access_token}", "8b6cd77a-aa44-4527-ab08-a58d70cca286");
-                token = $"{customerToken.token_type} {customerToken.access_token}";
-            }
-            else
-            {
-                var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ?? throw new ApiCallException("Invalid accountId");
-                var accessToken = _userContextLocal.Tokens.FirstOrDefault(x => x.RefreshAccessToken == account.RefreshAccessToken && x.RefreshTokenValidUntil > DateTime.Now) ?? throw new ApiCallException("Consent invalid or expired");
-                if (accessToken.TokenValidUntil > DateTime.Now)
+                if (SdkApiSettings.IsSandbox)
                 {
-                    token = accessToken.FullToken;
+                    var customerToken = await GetCustomerToken($"{clientToken.token_type} {clientToken.access_token}", "8b6cd77a-aa44-4527-ab08-a58d70cca286");
+                    token = $"{customerToken.token_type} {customerToken.access_token}";
                 }
                 else
                 {
-                    var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", _userContextLocal.Tokens.First().RefreshAccessToken);
-                    token = $"{refresh.token_type} {refresh.access_token}";
+                    var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ?? throw new ApiCallException("Invalid accountId");
+                    var accessToken = _userContextLocal.Tokens.FirstOrDefault(x => x.RefreshAccessToken == account.RefreshAccessToken && x.RefreshTokenValidUntil > DateTime.Now) ?? throw new ApiCallException("Consent invalid or expired");
+                    if (accessToken.TokenValidUntil > DateTime.Now)
+                    {
+                        token = accessToken.FullToken;
+                    }
+                    else
+                    {
+                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", accessToken.RefreshAccessToken);
+                        token = $"{refresh.token_type} {refresh.access_token}";
+                    }
                 }
-            }
 
-            var client = GetClient();
-            client.DefaultRequestHeaders.Add("Authorization", token);
-            var url = $"/v3/accounts/{accountId}/balances{(SdkApiSettings.IsSandbox ? "?balanceTypes=interimBooked" : "")}";
-            client.SignRequest(_settings.SigningCertificate, HttpMethod.Get, url, "Signature", clientToken.client_id);
-            var result = await client.GetAsync(url);
+                var client = GetClient();
+                client.DefaultRequestHeaders.Add("Authorization", token);
+                var url = $"/v3/accounts/{accountId}/balances{(SdkApiSettings.IsSandbox ? "?balanceTypes=interimBooked" : "")}";
+                client.SignRequest(_settings.SigningCertificate, HttpMethod.Get, url, "Signature", clientToken.client_id);
+                var result = await client.GetAsync(url);
 
-            string rawData = await result.Content.ReadAsStringAsync();
-            var model = JsonConvert.DeserializeObject<IngBalances>(rawData);
+                string rawData = await result.Content.ReadAsStringAsync();
+                var model = JsonConvert.DeserializeObject<IngBalances>(rawData);
 
-            var data = model.balances.Select(x => new Balance
-            {
-                BalanceAmount = new BalanceAmount
+                var data = model.balances.Select(x => new Balance
                 {
-                    Amount = x.balanceAmount.amount,
-                    Currency = x.balanceAmount.currency
-                },
-                BalanceType = x.balanceType,
-                LastChangeDateTime = x.lastChangeDateTime
-            }).ToList();
+                    BalanceAmount = new BalanceAmount
+                    {
+                        Amount = x.balanceAmount.amount,
+                        Currency = x.balanceAmount.currency
+                    },
+                    BalanceType = x.balanceType,
+                    LastChangeDateTime = x.lastChangeDateTime
+                }).ToList();
 
-            return new BankingResult<List<Balance>>(ResultStatus.DONE, url, data, rawData);
+                return new BankingResult<List<Balance>>(ResultStatus.DONE, url, data, rawData);
             }
             catch (ApiCallException e) { throw e; }
             catch (SdkUnauthorizedException e) { throw e; }
@@ -329,7 +329,7 @@ namespace BankingSDK.Base.ING
                     }
                     else
                     {
-                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", _userContextLocal.Tokens.First().RefreshAccessToken);
+                        var refresh = await GetRefreshToken($"{clientToken.token_type} {clientToken.access_token}", accessToken.RefreshAccessToken);
                         token = $"{refresh.token_type} {refresh.access_token}";
                     }
                 }
@@ -523,14 +523,14 @@ namespace BankingSDK.Base.ING
             return JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());
         }
 
-        private async Task<BerlinGroupAccessData> GetCustomerToken(string token, string authorizationCode)
+        private async Task<BerlinGroupAccessData> GetCustomerToken(string token, string authorizationCode, string clientId = null)
         {
             var content = new StringContent($"grant_type=authorization_code&code={authorizationCode}", Encoding.UTF8, "application/x-www-form-urlencoded");
             var payload = await content.ReadAsStringAsync();
 
             var client = GetClient(payload);
             client.DefaultRequestHeaders.Add("Authorization", token);
-            client.SignRequest(_settings.SigningCertificate, HttpMethod.Post, "/oauth2/token", "Signature", "5ca1ab1e-c0ca-c01a-cafe-154deadbea75");
+            client.SignRequest(_settings.SigningCertificate, HttpMethod.Post, "/oauth2/token", "Signature", clientId ?? "5ca1ab1e-c0ca-c01a-cafe-154deadbea75");
             var result = await client.PostAsync("/oauth2/token", content);
 
             return JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());

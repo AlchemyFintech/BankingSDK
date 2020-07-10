@@ -35,7 +35,11 @@ namespace BankingSDK.BE.Puilaetco
         public string UserContext
         {
             get => JsonConvert.SerializeObject(_userContext);
-            set => _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+            set
+            {
+                _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+                UserContextChanged = false;
+            }
         }
 
         public BePuilaetcoConnector(BankSettings settings) : base(settings, ConnectorType.BE_PUILAETCO_DEWAAY)
@@ -51,6 +55,7 @@ namespace BankingSDK.BE.Puilaetco
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
 

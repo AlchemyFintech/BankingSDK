@@ -43,6 +43,7 @@ namespace BankingSDK.BE.Belfius
             }
             set
             {
+                UserContextChanged = false;
                 _userContext = JsonConvert.DeserializeObject<BelfiusUserContext>(value);
             }
         }
@@ -59,6 +60,7 @@ namespace BankingSDK.BE.Belfius
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
         #endregion

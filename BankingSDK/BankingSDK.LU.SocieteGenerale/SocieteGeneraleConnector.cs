@@ -43,6 +43,7 @@ namespace BankingSDK.LU.SocieteGenerale
             set
             {
                 _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+                UserContextChanged = false;
             }
         }
 
@@ -58,6 +59,7 @@ namespace BankingSDK.LU.SocieteGenerale
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
 

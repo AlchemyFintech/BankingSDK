@@ -37,7 +37,11 @@ namespace BankingSDK.Base.BerlinGroup
         public string UserContext
         {
             get => JsonConvert.SerializeObject(_userContext);
-            set => _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+            set
+            {
+                _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+                UserContextChanged = false;
+            }
         }
 
         protected BaseBerlinGroupConnector(BankSettings settings, string sandboxUrl, string productionUrl, ConnectorType connectorType) : base(settings, connectorType)
@@ -54,6 +58,7 @@ namespace BankingSDK.Base.BerlinGroup
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
         #endregion

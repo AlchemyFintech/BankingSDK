@@ -46,6 +46,7 @@ namespace BankingSDK.Base.KBC
             set
             {
                 _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+                UserContextChanged = false;
             }
         }
 
@@ -61,6 +62,7 @@ namespace BankingSDK.Base.KBC
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
 

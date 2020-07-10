@@ -52,6 +52,7 @@ namespace BankingSDK.Base.BNP
             set
             {
                 _userContext = JsonConvert.DeserializeObject<BnpUserContext>(value);
+                UserContextChanged = false;
             }
         }
 
@@ -73,6 +74,7 @@ namespace BankingSDK.Base.BNP
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
         #endregion

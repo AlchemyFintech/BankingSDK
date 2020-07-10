@@ -40,7 +40,11 @@ namespace BankingSDK.Base.ING
         public string UserContext
         {
             get => JsonConvert.SerializeObject(_userContext);
-            set => _userContext = JsonConvert.DeserializeObject<IngUserContext>(value);
+            set
+            {
+                _userContext = JsonConvert.DeserializeObject<IngUserContext>(value);
+                UserContextChanged = false;
+            }
         }
 
         public BaseIngConnector(BankSettings settings, string countryCode, ConnectorType connectorType)
@@ -57,6 +61,7 @@ namespace BankingSDK.Base.ING
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
         #endregion

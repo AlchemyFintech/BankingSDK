@@ -227,7 +227,7 @@ namespace BankingSDK.BE.Puilaetco
             }
         }
 
-        public async Task<BankingResult<List<BankingAccount>>> DeleteAccountAccessAsync(string consentId)
+        public async Task<BankingResult<List<BankingAccount>>> DeleteConsentAsync(string consentId)
         {
             try
             {

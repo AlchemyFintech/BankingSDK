@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 namespace BankingSDK.GB.Revolut
 {
-    public class GbRevolutConnector : IBankingConnector
+    public class GbRevolutConnector /*: IBankingConnector*/
     {
         public string UserContext { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 

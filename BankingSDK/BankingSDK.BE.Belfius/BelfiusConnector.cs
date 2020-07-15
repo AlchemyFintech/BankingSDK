@@ -235,7 +235,7 @@ namespace BankingSDK.BE.Belfius
             return await RequestAccountsAccessFinalizeAsync(JsonConvert.DeserializeObject<FlowContext>(flowContextJson), queryString);
         }
 
-        public async Task<BankingResult<List<BankingAccount>>> DeleteAccountAccessAsync(string consentId)
+        public async Task<BankingResult<List<BankingAccount>>> DeleteConsentAsync(string consentId)
         {
             try
             {

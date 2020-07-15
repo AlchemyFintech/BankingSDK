@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace BankingSDK.BE.Triodos
 {
-    public class BeTriodosConnector : IBankingConnector
+    public class BeTriodosConnector /*: IBankingConnector*/
     {
         public string UserContext { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 

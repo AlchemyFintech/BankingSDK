@@ -1,7 +1,9 @@
 ﻿using BankingSDK.Common.Interfaces.Contexts;
+using BankingSDK.Common.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace BankingSDK.Base.BerlinGroup.Contexts
@@ -11,6 +13,7 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
         public string UserId { get; set; }
         public List<BerlinGroupUserConsent> Consents { get; set; } = new List<BerlinGroupUserConsent>();
         public List<BerlinGroupConsentAccount> Accounts { get; set; } = new List<BerlinGroupConsentAccount>();
+        List<BaseUserAccount> IUserContext.Accounts { get => Accounts.Cast<BaseUserAccount>().ToList(); set => Accounts = value.Cast<BerlinGroupConsentAccount>().ToList(); }
 
         public string ToJson()
         {
@@ -27,12 +30,8 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
         public DateTime TokenValidUntil { get; set; }
     }
 
-    public class BerlinGroupConsentAccount
+    public class BerlinGroupConsentAccount : BaseUserAccount
     {
-        public string Id { get; set; }
-        public string Iban { get; set; }
-        public string Currency { get; set; }
-        public string Description { get; set; }
         public string TransactionsConsentId { get; set; }
         public string BalancesConsentId { get; set; }
     }

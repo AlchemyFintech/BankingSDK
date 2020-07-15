@@ -1,7 +1,9 @@
 ﻿using BankingSDK.Common.Interfaces.Contexts;
+using BankingSDK.Common.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace BankingSDK.Base.KBC.Contexts
@@ -11,6 +13,7 @@ namespace BankingSDK.Base.KBC.Contexts
         public string UserId { get; set; }
         public List<KbcUserConsent> Consents { get; set; } = new List<KbcUserConsent>();
         public List<KbcConsentAccount> Accounts { get; set; } = new List<KbcConsentAccount>();
+        List<BaseUserAccount> IUserContext.Accounts { get => Accounts.Cast<BaseUserAccount>().ToList(); set => Accounts = value.Cast<KbcConsentAccount>().ToList(); }
 
         public string ToJson()
         {
@@ -27,12 +30,8 @@ namespace BankingSDK.Base.KBC.Contexts
         public DateTime TokenValidUntil { get; set; }
     }
 
-    public class KbcConsentAccount
+    public class KbcConsentAccount : BaseUserAccount
     {
-        public string Id { get; set; }
-        public string Iban { get; set; }
-        public string Currency { get; set; }
-        public string Description { get; set; }
         public string TransactionsConsentId { get; set; }
         public string BalancesConsentId { get; set; }
     }

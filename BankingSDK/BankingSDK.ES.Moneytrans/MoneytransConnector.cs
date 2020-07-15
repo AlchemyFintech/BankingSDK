@@ -58,7 +58,7 @@ namespace BankingSDK.ES.Moneytrans
             throw new NotImplementedException();
         }
 
-        public Task<BankingResult<List<BankingAccount>>> DeleteAccountAccessAsync(string consentId)
+        public Task<BankingResult<List<BankingAccount>>> DeleteConsentAsync(string consentId)
         {
             throw new NotImplementedException();
         }

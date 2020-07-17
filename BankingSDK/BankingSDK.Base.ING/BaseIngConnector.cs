@@ -347,8 +347,11 @@ namespace BankingSDK.Base.ING
                     Id = x.transactionId,
                     Currency = x.transactionAmount.currency,
                     Amount = x.transactionAmount.amount,
-                    CounterpartReference = x.debtorAccount.iban,
-                    ExecutionDate = x.bookingDate
+                    CounterpartReference = x.debtorAccount?.iban,
+                    CounterpartName = x.debtorName,
+                    ExecutionDate = x.bookingDate,
+                    ValueDate = x.valueDate,
+                    Description = x.remittanceInformationUnstructured
                 }).ToList();
 
                 return new BankingResult<List<Transaction>>(ResultStatus.DONE, url, data, rawData, pagerContext);

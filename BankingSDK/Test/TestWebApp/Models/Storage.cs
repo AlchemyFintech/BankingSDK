@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using TestWebApp.Controllers;
+using BankingSDK.Common.Contexts;
 
 namespace TestWebApp.Models
 {
@@ -18,5 +19,8 @@ namespace TestWebApp.Models
         public static string CallbackUrl { get; set; }
         public static string FinalizeUrl { get; set; }
         public static string SCAUrl { get; set; }
+        public static FlowContext Flow { get; internal set; }
+        public static string SingleAccount { get; internal set; }
+        public static string UserContext { get; internal set; }
     }
 }

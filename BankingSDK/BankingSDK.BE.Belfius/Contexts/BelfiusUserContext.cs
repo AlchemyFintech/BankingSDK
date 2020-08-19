@@ -9,6 +9,7 @@ namespace BankingSDK.BE.Belfius.Contexts
     public class BelfiusUserContext : IUserContext
     {
         public string UserId { get; set; }
+        public string RedirectUri { get; set; }
         public List<ConsentAccount> Accounts { get; set; } = new List<ConsentAccount>();
 
         public string ToJson()

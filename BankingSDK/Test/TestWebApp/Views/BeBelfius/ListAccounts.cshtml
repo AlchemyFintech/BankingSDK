@@ -10,6 +10,6 @@
 <ul>
     @foreach (Account account in Model.Accounts)
     {
-        <li>@account.Iban - <a href="@Url.Action("ListTransactions", "BeBelfius")?accountId=@account.Id">Transactions</a> </li>
+        <li>@account.Iban / @account.Description / @account.Currency - <a href="@Url.Action("ListTransactions", "BeBelfius")?accountId=@account.Id">Transactions</a> </li>
     }
 </ul>

@@ -46,6 +46,8 @@ namespace TestWebApp.Controllers
 
             if (result.GetStatus() == ResultStatus.REDIRECT)
             {
+                Storage.Flow = result.GetFlowContext();
+                Storage.SingleAccount = account;
                 Storage.SCAUrl = result.GetData();
             }
             else
@@ -57,8 +59,12 @@ namespace TestWebApp.Controllers
         }
 
         [HttpGet]
-        public IActionResult RequestAccountAccessFinalize()
+        public async Task<IActionResult> RequestAccountAccessFinalize()
         {
+            var connector = (BeBelfiusConnector)Storage.Connector;
+
+            var result = await connector.RequestAccountsAccessFinalizeAsync(Storage.Flow, HttpContext.Request.QueryString.ToString());
+
             return Redirect(Url.Action("ListAccounts"));
         }
 

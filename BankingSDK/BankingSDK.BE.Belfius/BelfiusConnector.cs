@@ -104,15 +104,15 @@ namespace BankingSDK.BE.Belfius
             }
         }
 
-        private async Task<HttpResponseMessage> GetAccountAsync(string token, string accountId)
+        private async Task<HttpResponseMessage> GetAccountAsync(string token, string accountId, string redirectUri)
         {
             var client = GetClient();
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.belfius.api+json; version=1");
             client.DefaultRequestHeaders.Add("Accept-Language", "en");
             // TODO how do we get Redirect-URI here
-            client.DefaultRequestHeaders.Add("Redirect-URI", "http://127.0.0.1:8080");
+            client.DefaultRequestHeaders.Add("Redirect-URI", redirectUri);
             client.DefaultRequestHeaders.Add("Authorization", $"{token}");
-            var url = $"/sandbox/psd2/accounts/{accountId}";
+            var url = $"/accounts/{accountId}";
 
             return await client.GetAsync(url);
         }
@@ -124,13 +124,15 @@ namespace BankingSDK.BE.Belfius
                 var client = GetClient();
                 client.DefaultRequestHeaders.Add("Accept", "application/vnd.belfius.api+json; version=1");
                 client.DefaultRequestHeaders.Add("Accept-Language", "en");
-                client.DefaultRequestHeaders.Add("Redirect-URI", $"{model.RedirectUrl}?flowId={model.FlowId}");
+                client.DefaultRequestHeaders.Add("Redirect-URI", $"{model.RedirectUrl}");
                 client.DefaultRequestHeaders.Add("Code-Challenge-Method", "S256");
-                var codeVerifier = Guid.NewGuid().ToString();
+                // var codeVerifier = Guid.NewGuid().ToString().Replace("-", "");
+                var codeVerifier = Guid.NewGuid().ToString() + "_" + Guid.NewGuid().ToString();
                 string codeChallenge;
                 using (SHA256 sha256Hash = SHA256.Create())
                 {
-                    codeChallenge = Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier)));
+                    codeChallenge = Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier)))
+                                           .Split('=')[0].Replace("+", "-").Replace("/", "_");
                 }
                 client.DefaultRequestHeaders.Add("Code-Challenge", codeChallenge);
                 var url = basePath + $"/consent-uris?scope=AIS&iban={model.SingleAccount}";
@@ -151,6 +153,14 @@ namespace BankingSDK.BE.Belfius
                         SingleAccount = model.SingleAccount
                     }
                 };
+
+                if (!accountAccessResult.consent_uri.Contains("?")) {
+                    accountAccessResult.consent_uri += "?";
+                }
+                if (accountAccessResult.consent_uri.Contains("&")) {
+                    accountAccessResult.consent_uri += "&";
+                }
+                accountAccessResult.consent_uri += "state=" + HttpUtility.UrlEncode(model.FlowId);
 
                 return new BankingResult<string>(ResultStatus.REDIRECT, url, accountAccessResult.consent_uri, rawData, flowContext: flowContext);
             }
@@ -178,7 +188,7 @@ namespace BankingSDK.BE.Belfius
                 }
                 var code = query.Get("code");
                 var auth = await GetToken(code, flowContext.CodeVerifier, flowContext.RedirectUrl);
-                var result = await GetAccountAsync(auth.Token, auth.logical_id);
+                var result = await GetAccountAsync(auth.Token, auth.logical_id, flowContext.RedirectUrl);
 
                 var account = JsonConvert.DeserializeObject<BelfiusAccount>(await result.Content.ReadAsStringAsync());
                 bool fullAccess = flowContext.AccountAccessProperties.BalanceAccounts == null && flowContext.AccountAccessProperties.TransactionAccounts == null;
@@ -211,6 +221,8 @@ namespace BankingSDK.BE.Belfius
                         }
                     });
                 }
+
+                _userContextLocal.RedirectUri = flowContext.RedirectUrl;
 
                 //cleanup
                 _userContextLocal.Accounts.RemoveAll(x => x.Token.ValidUntil < DateTime.Now);
@@ -277,8 +289,8 @@ namespace BankingSDK.BE.Belfius
                     await RefreshToken(account.Token);
                 }
 
-                var url = $"/sandbox/psd2/accounts/{accountId}";
-                var result = await GetAccountAsync(account.Token.Token, accountId);
+                var url = $"/accounts/{accountId}";
+                var result = await GetAccountAsync(account.Token.Token, accountId, _userContextLocal.RedirectUri);
 
                 string rawData = await result.Content.ReadAsStringAsync();
                 var model = JsonConvert.DeserializeObject<BelfiusAccount>(rawData);
@@ -318,13 +330,13 @@ namespace BankingSDK.BE.Belfius
                 client.DefaultRequestHeaders.Add("Accept", "application/vnd.belfius.api+json; version=1");
                 client.DefaultRequestHeaders.Add("Accept-Language", "en");
                 // TODO how do we get Redirect-URI here
-                client.DefaultRequestHeaders.Add("Redirect-URI", "http://127.0.0.1:8080");
+                client.DefaultRequestHeaders.Add("Redirect-URI", _userContextLocal.RedirectUri);
                 if (account.Token.TokenValidUntil < DateTime.Now)
                 {
                     await RefreshToken(account.Token);
                 }
                 client.DefaultRequestHeaders.Add("Authorization", account.Token.Token);
-                var url = $"/sandbox/psd2/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
+                var url = $"/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
                 var result = await client.GetAsync(url);
 
                 string rawData = await result.Content.ReadAsStringAsync();
@@ -339,7 +351,9 @@ namespace BankingSDK.BE.Belfius
                     Amount = x.amount,
                     CounterpartReference = x.counterparty_account,
                     Currency = x.currency,
-                    ExecutionDate = x.execution_date
+                    ExecutionDate = x.execution_date,
+                    Description = x.communication,
+                    CounterpartName = x.counterparty_info
                 }).ToList();
 
                 // JGD Do we keep this trace?
@@ -391,7 +405,7 @@ namespace BankingSDK.BE.Belfius
             client.DefaultRequestHeaders.Add("Code-Challenge", "test");
             //TODO add signature
             client.DefaultRequestHeaders.Add("Signature", "test");
-            var url = $"/sandbox/psd2/payments/sepa-credit-transfers";
+            var url = $"/payments/sepa-credit-transfers";
             var result = await client.PostAsync(url, content);
 
             var rawData = await result.Content.ReadAsStringAsync();
@@ -411,7 +425,7 @@ namespace BankingSDK.BE.Belfius
 
             var client = GetClient();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            var url = $"/berlingroup/v1/payments/sepa-credit-transfers/{flowContext.PaymentProperties.PaymentId}";
+            var url = $"/payments/sepa-credit-transfers/{flowContext.PaymentProperties.PaymentId}";
             var result = await client.GetAsync(url);
 
             var rawData = await result.Content.ReadAsStringAsync();
@@ -462,20 +476,24 @@ namespace BankingSDK.BE.Belfius
 
         #region Private
 
-        private async Task<BelfiusAccessData> GetToken(string authorizationCode, string codeChallenge, string redirectUrl)
+        private async Task<BelfiusAccessData> GetToken(string authorizationCode, string codeVerifier, string redirectUrl)
         {
-            string codeVerifier;
+            string codeChallenge;
+            var codeVerifier2 = Guid.NewGuid();//.ToString().Replace("-", "");
+
             using (SHA256 sha256Hash = SHA256.Create())
             {
-                codeVerifier = Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeChallenge)));
+                codeChallenge = Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier)))
+                    .Split('=')[0].Replace("+", "-").Replace("/", "_");
             }
 
-            var content = new StringContent($"code={authorizationCode}&code_verifier={codeVerifier}&grant_type=authorization_code&redirect_uri={redirectUrl}",
+            var querystring = $"grant_type=authorization_code&code={authorizationCode}&redirect_uri={HttpUtility.UrlEncode(redirectUrl)}&code_verifier={codeVerifier}";
+            var content = new StringContent($"grant_type=authorization_code&code={authorizationCode}&redirect_uri={HttpUtility.UrlEncode(redirectUrl)}&code_verifier={codeVerifier}",
                    Encoding.UTF8, "application/x-www-form-urlencoded");
             var client = GetClient();
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.belfius.api+json; version=1");
             client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_settings.AppClientId}:{_settings.AppClientSecret}")));
-            var result = await client.PostAsync($"/sandbox/psd2/token", content);
+            var result = await client.PostAsync($"/token", content);
 
             if (!result.IsSuccessStatusCode)
             {
@@ -492,7 +510,7 @@ namespace BankingSDK.BE.Belfius
             var client = GetClient();
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.belfius.api+json; version=1");
             client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_settings.AppClientId}:{_settings.AppClientSecret}")));
-            var result = await client.PostAsync($"/sandbox/psd2/token", content);
+            var result = await client.PostAsync($"/token", content);
 
             if (!result.IsSuccessStatusCode)
             {

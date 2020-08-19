@@ -41,6 +41,7 @@ namespace TestWebApp
             SdkApiSettings.Secret = Configuration.GetValue<string>("SdkSecret");
             SdkApiSettings.TppLegalName = Configuration.GetValue<string>("TppLegalName");
             SdkApiSettings.IsSandbox = Configuration.GetValue<bool>("Sandbox");
+            SdkApiSettings.IsDebug = true;
 
             DefaultBankSettings defaultBankSettings = new DefaultBankSettings();
             Configuration.GetSection("DefaultBankSettings").Bind(defaultBankSettings);

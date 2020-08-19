@@ -185,7 +185,8 @@ namespace BankingSDK.Base.ING.Contexts
                     break;
             }
 
-            return $"?{(SdkApiSettings.IsSandbox ? "dateFrom=2019-01-09&dateTo=2019-01-10&" : "")}limit={limit}{(string.IsNullOrEmpty(currentPageId) ? "" : "&next=")}{currentPageId}";
+            /// return $"?{(SdkApiSettings.IsSandbox ? "dateFrom=2019-01-09&dateTo=2019-01-10&" : "")}limit={limit}{(string.IsNullOrEmpty(currentPageId) ? "" : "&next=")}{currentPageId}";
+            return $"?dateFrom=2000-01-01T00:00:00Z&limit={limit}";
         }
     }
 }

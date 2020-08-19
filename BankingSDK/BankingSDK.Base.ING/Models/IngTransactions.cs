@@ -30,6 +30,9 @@ namespace BankingSDK.Base.ING.Models
 
     internal class IngBooked
     {
+        public DateTime? valueDate;
+        public string remittanceInformationUnstructured;
+        public IngDebtorAccount creditorAccount;    
         public string transactionType { get; set; }
         public IngDebtorAccount debtorAccount { get; set; }
         public IngRemittanceInformationStructured remittanceInformationStructured { get; set; }

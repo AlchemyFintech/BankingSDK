@@ -1,7 +1,9 @@
 ﻿using BankingSDK.Common.Interfaces.Contexts;
+using BankingSDK.Common.Models;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace BankingSDK.BE.Belfius.Contexts
@@ -11,6 +13,7 @@ namespace BankingSDK.BE.Belfius.Contexts
         public string UserId { get; set; }
         public string RedirectUri { get; set; }
         public List<ConsentAccount> Accounts { get; set; } = new List<ConsentAccount>();
+        List<BaseUserAccount> IUserContext.Accounts { get => Accounts.Cast<BaseUserAccount>().ToList(); set => Accounts = value.Cast<ConsentAccount>().ToList(); }
 
         public string ToJson()
         {
@@ -18,12 +21,8 @@ namespace BankingSDK.BE.Belfius.Contexts
         }
     }
 
-    public class ConsentAccount
+    public class ConsentAccount : BaseUserAccount
     {
-        public string Id { get; set; }
-        public string Iban { get; set; }
-        public string Currency { get; set; }
-        public string Description { get; set; }
         public UserToken Token { get; set; }
     }
 

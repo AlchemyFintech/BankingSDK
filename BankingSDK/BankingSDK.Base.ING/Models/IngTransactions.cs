@@ -36,8 +36,10 @@ namespace BankingSDK.Base.ING.Models
         public string transactionType { get; set; }
         public IngDebtorAccount debtorAccount { get; set; }
         public IngRemittanceInformationStructured remittanceInformationStructured { get; set; }
+        public string remittanceInformationUnstructured { get; set; }
         public IngTransactionAmount transactionAmount { get; set; }
         public DateTime? bookingDate { get; set; }
+        public DateTime? valueDate { get; set; }
         public string debtorName { get; set; }
         public string endToEndId { get; set; }
         public string transactionId { get; set; }

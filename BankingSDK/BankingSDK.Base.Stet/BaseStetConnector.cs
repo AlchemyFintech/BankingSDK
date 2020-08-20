@@ -53,6 +53,7 @@ namespace BankingSDK.Base.Stet
             set
             {
                 _userContext = JsonConvert.DeserializeObject<StetUserContext>(value);
+                UserContextChanged = false;
             }
         }
 
@@ -74,6 +75,7 @@ namespace BankingSDK.Base.Stet
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
         #endregion
@@ -208,7 +210,7 @@ namespace BankingSDK.Base.Stet
             return await RequestAccountsAccessFinalizeAsync(JsonConvert.DeserializeObject<FlowContext>(flowContextJson), queryString);
         }
 
-        public async Task<BankingResult<List<BankingAccount>>> DeleteAccountAccessAsync(string consentId)
+        public async Task<BankingResult<List<BankingAccount>>> DeleteConsentAsync(string consentId)
         {
 
             try

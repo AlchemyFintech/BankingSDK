@@ -20,7 +20,7 @@ namespace BankingSDK.ES.Moneytrans
     {
         private BerlinGroupUserContext _userContextLocal => (BerlinGroupUserContext)_userContext;
 
-        public MoneytransConnector(BankSettings settings) :base(settings, 1000)
+        public MoneytransConnector(BankSettings settings) : base(settings, 1000)
         {
 
         }
@@ -29,7 +29,11 @@ namespace BankingSDK.ES.Moneytrans
         public string UserContext
         {
             get => JsonConvert.SerializeObject(_userContext);
-            set => _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+            set
+            {
+                _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+                UserContextChanged = false;
+            }
         }
 
 
@@ -54,7 +58,7 @@ namespace BankingSDK.ES.Moneytrans
             throw new NotImplementedException();
         }
 
-        public Task<BankingResult<List<BankingAccount>>> DeleteAccountAccessAsync(string consentId)
+        public Task<BankingResult<List<BankingAccount>>> DeleteConsentAsync(string consentId)
         {
             throw new NotImplementedException();
         }
@@ -86,6 +90,7 @@ namespace BankingSDK.ES.Moneytrans
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
 

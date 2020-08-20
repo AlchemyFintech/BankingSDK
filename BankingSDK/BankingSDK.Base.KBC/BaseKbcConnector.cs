@@ -46,6 +46,7 @@ namespace BankingSDK.Base.KBC
             set
             {
                 _userContext = JsonConvert.DeserializeObject<BerlinGroupUserContext>(value);
+                UserContextChanged = false;
             }
         }
 
@@ -61,6 +62,7 @@ namespace BankingSDK.Base.KBC
                 UserId = userId
             };
 
+            UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
 
@@ -148,7 +150,7 @@ namespace BankingSDK.Base.KBC
                 }
 
                 string mainCompany;
-                switch(ConnectorType)
+                switch (ConnectorType)
                 {
                     case ConnectorType.BE_KBC:
                         mainCompany = "0001";
@@ -178,8 +180,7 @@ namespace BankingSDK.Base.KBC
                     {
                         ConsentId = accountAccessResult.consentId,
                         ValidUntil = DateTime.Today.AddDays(89).Date,
-                        BalanceAccounts = model.BalanceAccounts,
-                        TransactionAccounts = model.TransactionAccounts
+                        SingleAccount = model.SingleAccount
                     }
                 };
 
@@ -208,7 +209,6 @@ namespace BankingSDK.Base.KBC
                 var code = query.Get("code");
                 var auth = await GetToken(code, flowContext.CodeVerifier, flowContext.RedirectUrl);
                 var accounts = await GetAccountsAsync(flowContext.AccountAccessProperties.ConsentId, auth.Token);
-                bool fullAccess = flowContext.AccountAccessProperties.BalanceAccounts == null && flowContext.AccountAccessProperties.TransactionAccounts == null;
 
                 _userContextLocal.Consents.Add(new BerlinGroupUserConsent
                 {
@@ -224,8 +224,8 @@ namespace BankingSDK.Base.KBC
                     var temp = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == account.resourceId);
                     if (temp != null)
                     {
-                        temp.BalancesConsentId = fullAccess || flowContext.AccountAccessProperties.BalanceAccounts.Any(y => account.iban == y) ? flowContext.AccountAccessProperties.ConsentId : temp.BalancesConsentId;
-                        temp.TransactionsConsentId = fullAccess || flowContext.AccountAccessProperties.TransactionAccounts.Any(y => account.iban == y) ? flowContext.AccountAccessProperties.ConsentId : temp.TransactionsConsentId;
+                        temp.BalancesConsentId = flowContext.AccountAccessProperties.ConsentId;
+                        temp.TransactionsConsentId = flowContext.AccountAccessProperties.ConsentId;
                     }
                     else
                     {
@@ -235,8 +235,8 @@ namespace BankingSDK.Base.KBC
                             Iban = account.iban,
                             Currency = account.currency,
                             Description = account.name,
-                            BalancesConsentId = fullAccess || flowContext.AccountAccessProperties.BalanceAccounts.Any(y => account.iban == y) ? flowContext.AccountAccessProperties.ConsentId : null,
-                            TransactionsConsentId = fullAccess || flowContext.AccountAccessProperties.TransactionAccounts.Any(y => account.iban == y) ? flowContext.AccountAccessProperties.ConsentId : null
+                            BalancesConsentId = flowContext.AccountAccessProperties.ConsentId,
+                            TransactionsConsentId = flowContext.AccountAccessProperties.ConsentId
                         });
                     }
                 }
@@ -263,7 +263,7 @@ namespace BankingSDK.Base.KBC
             return await RequestAccountsAccessFinalizeAsync(JsonConvert.DeserializeObject<FlowContext>(flowContextJson), queryString);
         }
 
-        public async Task<BankingResult<List<BankingAccount>>> DeleteAccountAccessAsync(string consentId)
+        public async Task<BankingResult<List<BankingAccount>>> DeleteConsentAsync(string consentId)
         {
             try
             {
@@ -564,12 +564,14 @@ namespace BankingSDK.Base.KBC
                 consent.Token = auth.Token;
                 consent.TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60);
                 consent.RefreshToken = auth.refresh_token;
-            } catch(Exception e)
+            }
+            catch (Exception e)
             {
                 // An error occured in refreshing, this is not recoverable. Set the date to yesterday to show it invalid
                 consent.TokenValidUntil = DateTime.Now.AddDays(-1);
                 throw e;
-            } finally
+            }
+            finally
             {
                 UserContextChanged = true;
             }

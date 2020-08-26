@@ -138,11 +138,11 @@ namespace BankingSDK.Base.BerlinGroup
 
                 string rawData = await result.Content.ReadAsStringAsync();
                 var accountAccessResult = JsonConvert.DeserializeObject<BerlinGroupAccountsAccessResponse>(rawData);
-                var codeVerifier = Guid.NewGuid().ToString();
+                var codeVerifier = Guid.NewGuid().ToString() + "_" + Guid.NewGuid().ToString();
                 string codeChallenge;
                 using (SHA256 sha256Hash = SHA256.Create())
                 {
-                    codeChallenge = Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier)));
+                    codeChallenge = Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier))).Split('=')[0].Replace("+", "-").Replace("/", "_");
                 }
                 var redirect = $"{accountAccessResult._links.scaOAuth.href}?scope=AIS:{accountAccessResult.consentId}&client_id={_settings.NcaId}&state={model.FlowId}&redirect_uri={WebUtility.UrlEncode(SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl)}&code_challenge={WebUtility.UrlEncode(codeChallenge)}&response_type=code&code_challenge_method=S256";
 
@@ -195,7 +195,9 @@ namespace BankingSDK.Base.BerlinGroup
                     ValidUntil = flowContext.AccountAccessProperties.ValidUntil,
                     RefreshToken = auth.refresh_token,
                     Token = auth.Token,
-                    TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60)
+                    // MAN 20200825 : we receive 3600 from bank but the accesstoken is only valid for around 20min...
+                    // TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60)
+                    TokenValidUntil = DateTime.Now.AddSeconds((20*60) - 60)
                 });
 
                 foreach (var account in accounts)
@@ -356,10 +358,12 @@ namespace BankingSDK.Base.BerlinGroup
                 var client = GetClient();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.Add("Consent-ID", consent.ConsentId);
+                var dump = JsonConvert.SerializeObject(_userContextLocal);
                 if (consent.TokenValidUntil < DateTime.Now)
                 {
                     await RefreshToken(consent);
                 }
+                dump = JsonConvert.SerializeObject(_userContextLocal);
                 client.DefaultRequestHeaders.Add("Authorization", consent.Token);
                 var url = $"/berlingroup/v1/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
                 var result = await client.GetAsync(url);
@@ -373,8 +377,8 @@ namespace BankingSDK.Base.BerlinGroup
                 {
                     Id = x.transactionId,
                     Amount = x.transactionAmount.amount,
-                    CounterpartReference = x.creditorAccount.iban,
-                    CounterpartName = x.creditorName,
+                    CounterpartReference = (x.transactionAmount.amount >= 0) ? x.debtorAccount?.iban : x.creditorAccount?.iban,
+                    CounterpartName = (x.transactionAmount.amount >= 0) ? x.debtorName : x.creditorName,
                     Currency = x.transactionAmount.currency,
                     Description = x.remittanceInformationUnstructured,
                     ExecutionDate = x.bookingDate,
@@ -549,6 +553,7 @@ namespace BankingSDK.Base.BerlinGroup
             var client = GetClient();
             var result = await client.PostAsync($"/berlingroup/v1/token", content);
 
+            var rawData = await result.Content.ReadAsStringAsync();
             return JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());
         }
 
@@ -561,7 +566,9 @@ namespace BankingSDK.Base.BerlinGroup
 
             var auth = JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());
             consent.Token = auth.Token;
-            consent.TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60);
+            // MAN 20200825 : we receive 3600 from bank but the accesstoken is only valid for around 20min...
+            // consent.TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60);
+            consent.TokenValidUntil = DateTime.Now.AddSeconds((20*60) - 60);
             UserContextChanged = true;
         }
 

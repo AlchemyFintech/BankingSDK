@@ -114,7 +114,7 @@ namespace BankingSDK.BE.Belfius
             // TODO how do we get Redirect-URI here
             client.DefaultRequestHeaders.Add("Redirect-URI", redirectUri);
             client.DefaultRequestHeaders.Add("Authorization", $"{token}");
-            var url = $"/accounts/{accountId}";
+            var url = basePath + $"/accounts/{accountId}";
 
             return await client.GetAsync(url);
         }
@@ -253,7 +253,7 @@ namespace BankingSDK.BE.Belfius
             {
                 var client = GetClient();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-                var url = $"/berlingroup/v1/consents/{consentId}";
+                var url = basePath + $"/berlingroup/v1/consents/{consentId}";
                 var result = await client.DeleteAsync(url);
 
                 var data = _userContextLocal.Accounts.Where(x => x.Token.RefreshToken == consentId).Select(x => new BankingAccount
@@ -291,7 +291,7 @@ namespace BankingSDK.BE.Belfius
                     await RefreshToken(account.Token);
                 }
 
-                var url = $"/accounts/{accountId}";
+                var url = basePath + $"/accounts/{accountId}";
                 var result = await GetAccountAsync(account.Token.Token, accountId, _userContextLocal.RedirectUri);
 
                 string rawData = await result.Content.ReadAsStringAsync();
@@ -338,7 +338,7 @@ namespace BankingSDK.BE.Belfius
                     await RefreshToken(account.Token);
                 }
                 client.DefaultRequestHeaders.Add("Authorization", account.Token.Token);
-                var url = $"/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
+                var url = basePath + $"/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
                 var result = await client.GetAsync(url);
 
                 string rawData = await result.Content.ReadAsStringAsync();
@@ -407,7 +407,7 @@ namespace BankingSDK.BE.Belfius
             client.DefaultRequestHeaders.Add("Code-Challenge", "test");
             //TODO add signature
             client.DefaultRequestHeaders.Add("Signature", "test");
-            var url = $"/payments/sepa-credit-transfers";
+            var url = basePath + $"/payments/sepa-credit-transfers";
             var result = await client.PostAsync(url, content);
 
             var rawData = await result.Content.ReadAsStringAsync();
@@ -427,7 +427,7 @@ namespace BankingSDK.BE.Belfius
 
             var client = GetClient();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            var url = $"/payments/sepa-credit-transfers/{flowContext.PaymentProperties.PaymentId}";
+            var url = basePath + $"/payments/sepa-credit-transfers/{flowContext.PaymentProperties.PaymentId}";
             var result = await client.GetAsync(url);
 
             var rawData = await result.Content.ReadAsStringAsync();
@@ -495,7 +495,7 @@ namespace BankingSDK.BE.Belfius
             var client = GetClient();
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.belfius.api+json; version=1");
             client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_settings.AppClientId}:{_settings.AppClientSecret}")));
-            var result = await client.PostAsync($"/token", content);
+            var result = await client.PostAsync(basePath + $"/token", content);
 
             if (!result.IsSuccessStatusCode)
             {
@@ -512,7 +512,7 @@ namespace BankingSDK.BE.Belfius
             var client = GetClient();
             client.DefaultRequestHeaders.Add("Accept", "application/vnd.belfius.api+json; version=1");
             client.DefaultRequestHeaders.Add("Authorization", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_settings.AppClientId}:{_settings.AppClientSecret}")));
-            var result = await client.PostAsync($"/token", content);
+            var result = await client.PostAsync(basePath + $"/token", content);
 
             if (!result.IsSuccessStatusCode)
             {

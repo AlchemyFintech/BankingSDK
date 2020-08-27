@@ -158,8 +158,7 @@ namespace BankingSDK.BE.Belfius
 
                 if (!accountAccessResult.consent_uri.Contains("?")) {
                     accountAccessResult.consent_uri += "?";
-                }
-                if (accountAccessResult.consent_uri.Contains("&")) {
+                } else {
                     accountAccessResult.consent_uri += "&";
                 }
                 accountAccessResult.consent_uri += "state=" + HttpUtility.UrlEncode(model.FlowId);
@@ -326,7 +325,7 @@ namespace BankingSDK.BE.Belfius
             try
             {
                 var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ?? throw new ApiCallException("Invalid accountId");
-                BerlinGroupPagerContext pagerContext = (context as BerlinGroupPagerContext) ?? new BerlinGroupPagerContext();
+                BelfiusPagerContext pagerContext = (context as BelfiusPagerContext) ?? new BelfiusPagerContext();
 
                 var client = GetClient();
                 client.DefaultRequestHeaders.Add("Accept", "application/vnd.belfius.api+json; version=1");
@@ -343,9 +342,10 @@ namespace BankingSDK.BE.Belfius
 
                 string rawData = await result.Content.ReadAsStringAsync();
                 var model = JsonConvert.DeserializeObject<BelfiusTransactions>(rawData);
+                pagerContext.AddNextPageKey(model._embedded.next_page_key);
                 //TODO create pager context
                 //pagerContext.SetPage(pagerContext.GetNextPage());
-                //pagerContext.SetPageTotal(model.transactions.PageTotal);
+                //pagerContext.SetPageTotal(model._embedded.transactions..PageTotal);
 
                 var data = model._embedded.transactions.Select(x => new Transaction
                 {
@@ -467,12 +467,12 @@ namespace BankingSDK.BE.Belfius
         #region Pager
         public IPagerContext RestorePagerContext(string json)
         {
-            return JsonConvert.DeserializeObject<BerlinGroupPagerContext>(json);
+            return JsonConvert.DeserializeObject<BelfiusPagerContext>(json);
         }
 
         public IPagerContext CreatePageContext(byte limit)
         {
-            return new BerlinGroupPagerContext(limit);
+            return new BelfiusPagerContext(limit);
         }
         #endregion
 

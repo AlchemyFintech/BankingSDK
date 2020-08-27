@@ -1,14 +1,13 @@
-﻿using BankingSDK.Common;
-using BankingSDK.Common.Interfaces.Contexts;
+﻿using BankingSDK.Common.Interfaces.Contexts;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace BankingSDK.Base.ING.Contexts
+namespace BankingSDK.Base.BerlinGroup.Contexts
 {
-    public class IngPagerContext : IPagerContext
+    public class BelfiusPagerContext : IPagerContext
     {
         [JsonProperty] private byte limit;
         [JsonProperty] private List<string> nextPageKeys;
@@ -17,11 +16,11 @@ namespace BankingSDK.Base.ING.Contexts
         [JsonProperty] private uint totalPage;
         [JsonProperty] private uint? total;
 
-        public IngPagerContext() : this(10)
+        public BelfiusPagerContext() : this(10)
         {
         }
 
-        public IngPagerContext(byte limit)
+        public BelfiusPagerContext(byte limit)
         {
             this.limit = limit;
             page = 0;
@@ -155,23 +154,17 @@ namespace BankingSDK.Base.ING.Contexts
             return (uint) (page + 1);
         }
 
-        public string GetRequestParams(string baseUrl)
+        public string GetRequestParams()
         {
+            var next = "";
+
             if (page > 0)
             {
-                return nextPageKeys[page];
+                next = "&next=" + nextPageKeys[page];
             }
 
-            if (!baseUrl.Contains("?"))
-            {
-                baseUrl += "?";
-            }
-            else
-            {
-                baseUrl += "&";
-            }
-            
-            return baseUrl + $"dateFrom=2000-01-01T00:00:00Z&limit={limit}";
+            return $"?dateFrom=1980-01-01&bookingStatus=both&pagesize={limit}{next}";
+            // return $"?dateFrom=1980-01-01&bookingStatus=both";
         }
 
         public string ToJson()

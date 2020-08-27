@@ -115,8 +115,8 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
 
         public string GetRequestParams()
         {
-            // return $"?dateFrom=1980-01-01&bookingStatus=both&size={limit}&page={nextPage}";
-            return $"?dateFrom=1980-01-01&bookingStatus=both";
+            return $"?dateFrom=1980-01-01&bookingStatus=both&size={limit}&page={nextPage}";
+            // return $"?dateFrom=1980-01-01&bookingStatus=both";
         }
 
         public string ToJson()

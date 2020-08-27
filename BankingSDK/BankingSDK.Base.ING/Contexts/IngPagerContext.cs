@@ -134,27 +134,6 @@ namespace BankingSDK.Base.ING.Contexts
             this.page = (int) page - 1;
         }
 
-        internal uint GetPage()
-        {
-            return (uint) page + 1;
-        }
-
-        public uint GetNextPage()
-        {
-            // we didn't start to crawl the list
-            if (nextPageKeys.Count == 0)
-            {
-                return 0;
-            }
-
-            if (page == nextPageKeys.Count - 1)
-            {
-                return (uint) page;
-            }
-
-            return (uint) (page + 1);
-        }
-
         public string GetRequestParams(string baseUrl)
         {
             if (page > 0)

@@ -200,12 +200,12 @@ namespace BankingSDK.Base.ING.Contexts
 
         public uint? RecordCount()
         {
-            return 0;
+            return null;
         }
 
         public uint? PageCount()
         {
-            return (uint) (nextPageKeys.Count == 0 ? 0 : nextPageKeys.Count);
+            return  (nextPageKeys.Count == 0 ? null : (uint?)nextPageKeys.Count);
         }
 
         public void AddNextPageKey(string key)

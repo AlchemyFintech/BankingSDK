@@ -335,22 +335,23 @@ namespace BankingSDK.Base.ING
 
                 var client = GetClient();
                 client.DefaultRequestHeaders.Add("Authorization", token);
-                var url = $"/v2/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
+                var url = pagerContext.GetRequestParams($"/v2/accounts/{accountId}/transactions");
                 client.SignRequest(_settings.SigningCertificate, HttpMethod.Get, url, "Signature", clientToken.client_id);
                 var result = await client.GetAsync(url);
 
                 string rawData = await result.Content.ReadAsStringAsync();
                 var model = JsonConvert.DeserializeObject<IngTransactionsModel>(rawData);
+                pagerContext.AddNextPageKey(model.transactions._links?.next?.href);
 
                 var data = model.transactions.booked.Select(x => new Transaction
                 {
                     Id = x.transactionId,
                     Currency = x.transactionAmount.currency,
                     Amount = x.transactionAmount.amount,
-                    CounterpartReference = x.debtorAccount?.iban,
+                    CounterpartReference = (x.transactionAmount.amount >= 0) ? x.debtorAccount?.iban : x.creditorAccount?.iban,
                     CounterpartName = x.debtorName,
-                    ExecutionDate = x.bookingDate,
                     ValueDate = x.valueDate,
+                    ExecutionDate = x.bookingDate,
                     Description = x.remittanceInformationUnstructured
                 }).ToList();
 

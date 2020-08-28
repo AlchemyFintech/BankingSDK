@@ -10,6 +10,11 @@
 <ul>
     @foreach (Transaction transaction in Model.Transactions)
     {
-        <li>@transaction.Amount - @transaction.ValueDate</li>
+        <li>
+            @transaction.Amount@transaction.Currency 
+            to/from @transaction.CounterpartReference (@transaction.CounterpartName) 
+            at Value date : @transaction.ValueDate - Exec date : @transaction.ExecutionDate<br/>
+            <i>@transaction.Description</i>
+        </li>
     }
 </ul>

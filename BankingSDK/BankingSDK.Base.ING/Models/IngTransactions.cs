@@ -30,6 +30,7 @@ namespace BankingSDK.Base.ING.Models
 
     internal class IngBooked
     {
+        public IngDebtorAccount creditorAccount;    
         public string transactionType { get; set; }
         public IngDebtorAccount debtorAccount { get; set; }
         public IngRemittanceInformationStructured remittanceInformationStructured { get; set; }
@@ -45,5 +46,16 @@ namespace BankingSDK.Base.ING.Models
     internal class IngTransactions
     {
         public List<IngBooked> booked { get; set; }
+        public IngTransactionsLinks _links { get; set; }
+    }
+
+    internal class IngTransactionsLinks
+    {
+        public IngTransactionsLinksHref next { get; set; }
+    }
+
+    internal class IngTransactionsLinksHref
+    {
+        public string href { get; set; }
     }
 }

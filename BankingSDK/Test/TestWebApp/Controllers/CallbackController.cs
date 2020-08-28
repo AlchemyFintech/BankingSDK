@@ -8,12 +8,13 @@ namespace TestWebApp.Controllers
         [HttpGet]
         public IActionResult Index()
         {
-            if (!string.IsNullOrEmpty(Storage.FinalizeUrl))
+            /*if (!string.IsNullOrEmpty(Storage.FinalizeUrl))
             {
                 return Redirect(Storage.FinalizeUrl + "?" + HttpContext.Request.QueryString);
-            }
+            }*/
 
-            return RedirectToAction("Index", "Home");
+            ViewBag.finalizeUrl = Storage.FinalizeUrl + HttpContext.Request.QueryString;
+            return View();
         }
     }
 }

@@ -107,32 +107,6 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
             return limit;
         }
 
-        public void SetPageTotal(uint pageTotal)
-        {
-            this.totalPage = pageTotal;
-        }
-
-        internal void SetTotal(uint total)
-        {
-            this.total = total;
-        }
-
-        public void SetPage(uint page)
-        {
-            // we didn't start to crawl the list
-            if (nextPageKeys.Count == 0)
-            {
-                return;
-            }
-
-            if (page > nextPageKeys.Count)
-            {
-                this.page = (nextPageKeys.Count - 1);
-            }
-
-            this.page = (int) page - 1;
-        }
-
         public string GetRequestParams()
         {
             var next = "";

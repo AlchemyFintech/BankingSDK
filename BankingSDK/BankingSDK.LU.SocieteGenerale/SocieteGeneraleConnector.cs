@@ -47,7 +47,7 @@ namespace BankingSDK.LU.SocieteGenerale
             }
         }
 
-        public LuSocieteGeneraleConnector(BankSettings settings) :base(settings, ConnectorType.LU_SOCIETE_GENERALE)
+        public LuSocieteGeneraleConnector(BankSettings settings) :base(settings, ConnectorType.UNKNOWN /*LU_SOCIETE_GENERALE*/)
         {
         }
 

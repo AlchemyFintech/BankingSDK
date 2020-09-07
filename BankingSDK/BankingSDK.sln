@@ -83,7 +83,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestWebApp", "Test\TestWebA
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BankingSDK.BE.KBCBrussels", "BankingSDK.BE.KBCBrussels\BankingSDK.BE.KBCBrussels.csproj", "{9EDA4230-A344-4C61-86A3-6693CC333B93}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GettingStarted", "Test\GettingStarted\GettingStarted.csproj", "{833FB682-05C7-43D6-AA45-6141876F4DE1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GettingStarted", "Test\GettingStarted\GettingStarted.csproj", "{833FB682-05C7-43D6-AA45-6141876F4DE1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BankingSDK.Base.Ibanity", "BankingSDK.Base.Ibanity\BankingSDK.Base.Ibanity.csproj", "{860E3D3F-E21F-4067-977E-EDD65F66C77E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -251,6 +253,10 @@ Global
 		{833FB682-05C7-43D6-AA45-6141876F4DE1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{833FB682-05C7-43D6-AA45-6141876F4DE1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{833FB682-05C7-43D6-AA45-6141876F4DE1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{860E3D3F-E21F-4067-977E-EDD65F66C77E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{860E3D3F-E21F-4067-977E-EDD65F66C77E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{860E3D3F-E21F-4067-977E-EDD65F66C77E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{860E3D3F-E21F-4067-977E-EDD65F66C77E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

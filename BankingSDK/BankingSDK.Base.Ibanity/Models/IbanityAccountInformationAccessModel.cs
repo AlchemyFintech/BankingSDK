@@ -19,17 +19,17 @@ namespace BankingSDK.Base.Ibanity.Models
         public string Status { get; set; }
     }
 
-    internal class IbanityAccounts
-    {
-        [JsonProperty("links")]
-        public RelatedLinks Links { get; set; }
-    }
+    //internal class IbanityAccounts
+    //{
+    //    [JsonProperty("links")]
+    //    public IbanityRelatedLinks Links { get; set; }
+    //}
 
-    internal class IbanityAccountInformationAccessRelationships
-    {
-        [JsonProperty("accounts")]
-        public IbanityAccounts Accounts { get; set; }
-    }
+    //internal class IbanityAccountInformationAccessRelationships
+    //{
+    //    [JsonProperty("accounts")]
+    //    public IbanityAccounts Accounts { get; set; }
+    //}
 
     internal class IbanityAccountInformationAccessData
     {
@@ -38,9 +38,9 @@ namespace BankingSDK.Base.Ibanity.Models
         [JsonProperty("id")]
         public string Id { get; set; }
         [JsonProperty("links")]
-        public RedirectLinks Links { get; set; }
-        [JsonProperty("relationships")]
-        public IbanityAccountInformationAccessRelationships Relationships { get; set; }
+        public IbanityRedirectLinks Links { get; set; }
+        //[JsonProperty("relationships")]
+        //public IbanityAccountInformationAccessRelationships Relationships { get; set; }
         [JsonProperty("type")]
         public string Type { get; set; }
     }

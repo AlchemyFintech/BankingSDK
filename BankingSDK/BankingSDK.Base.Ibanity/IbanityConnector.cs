@@ -1,8 +1,10 @@
 ﻿using BankingSDK.Base.Ibanity.Contexts;
+using BankingSDK.Base.Ibanity.Enums;
 using BankingSDK.Base.Ibanity.Extensions;
 using BankingSDK.Base.Ibanity.Models;
 using BankingSDK.Base.Ibanity.Models.Requests;
 using BankingSDK.Common;
+using BankingSDK.Common.Contexts;
 using BankingSDK.Common.Enums;
 using BankingSDK.Common.Exceptions;
 using BankingSDK.Common.Interfaces;
@@ -13,11 +15,13 @@ using BankingSDK.Common.Models.Request;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web;
 using static System.Net.WebRequestMethods;
 
 namespace BankingSDK.Base.Ibanity
@@ -43,7 +47,7 @@ namespace BankingSDK.Base.Ibanity
             }
         }
 
-        public IbanityConnector(BankSettings settings, int connectorId, string bankId, string keyId) : base(settings, connectorId)
+        public IbanityConnector(BankSettings settings, int connectorId, string bankId) : base(settings, connectorId)
         {
             _bankId = bankId;
         }
@@ -51,12 +55,13 @@ namespace BankingSDK.Base.Ibanity
         #region User
         public async Task<BankingResult<IUserContext>> RegisterUserAsync(string userId)
         {
-            //_token = await GetToken(userId);
+            var contextId = Guid.NewGuid();
             _userContext = new IbanityUserContext
             {
-                UserId = userId
+                UserId = userId,
+                ContextId = contextId
             };
-
+            _userContextLocal.Token = await GetToken($"{userId}_{contextId}");
             UserContextChanged = false;
             return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
         }
@@ -161,13 +166,13 @@ namespace BankingSDK.Base.Ibanity
                     {
                         Attributes = new Models.Requests.IbanityAccountInformationAccessAttributes
                         {
-                            //ConsentReference = tppConsent,
+                            ConsentReference = request.FlowId,
                             RedirectUri = $"{request.RedirectUrl}?flowId={request.FlowId}"
                         }
                     }
                 }), Encoding.UTF8, "application/json");
                 var client = GetClient(await content.ReadAsStringAsync());
-                client.DefaultRequestHeaders.Add("Authorization", _token);
+                client.DefaultRequestHeaders.Add("Authorization", _userContextLocal.Token);
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 string url = $"/xs2a/customer/financial-institutions/{_bankId}/account-information-access-requests";
                 client.SignRequest(HttpMethod.Post, url, _settings.SigningCertificate, _settings.AppClientId);
@@ -175,7 +180,13 @@ namespace BankingSDK.Base.Ibanity
 
                 string rawData = await result.Content.ReadAsStringAsync();
                 var model = JsonConvert.DeserializeObject<IbanityAccountInformationAccessModel>(rawData);
-                return new BankingResult<string>(ResultStatus.REDIRECT, url, model.Data.Links.Redirect, rawData);
+                var flowContext = new FlowContext
+                {
+                    Id = request.FlowId,
+                    ConnectorType = ConnectorType,
+                    FlowType = FlowType.AccountsAccess
+                };
+                return new BankingResult<string>(ResultStatus.REDIRECT, url, model.Data.Links.Redirect, rawData, flowContext: flowContext);
             }
             catch (ApiCallException e) { throw e; }
             catch (SdkUnauthorizedException e) { throw e; }
@@ -186,83 +197,160 @@ namespace BankingSDK.Base.Ibanity
             }
         }
 
+        public async Task<BankingResult<IUserContext>> RequestAccountsAccessFinalizeAsync(FlowContext flowContext, string queryString)
+        {
+            try
+            {
+                //do we need more stuff here?
+
+                return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
+            }
+            catch (ApiCallException e) { throw e; }
+            catch (ApiUnauthorizedException e) { throw e; }
+            catch (PagerException e) { throw e; }
+            catch (SdkUnauthorizedException e) { throw e; }
+            catch (Exception e)
+            {
+                await LogAsync(apiUrl, 500, Http.Get, e.ToString());
+                throw e;
+            }
+        }
+
+        public async Task<BankingResult<IUserContext>> RequestAccountsAccessFinalizeAsync(string flowContextJson, string queryString)
+        {
+            return await RequestAccountsAccessFinalizeAsync(JsonConvert.DeserializeObject<FlowContext>(flowContextJson), queryString);
+        }
+
         public async Task<BankingResult<List<Account>>> GetAccountsAsync()
         {
             var client = GetClient();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", _token);
+            client.DefaultRequestHeaders.Add("Authorization", _userContextLocal.Token);
             string url = $"/xs2a/customer/financial-institutions/{_bankId}/accounts?limit=100";
             client.SignRequest(HttpMethod.Get, url, _settings.SigningCertificate, _settings.AppClientId);
             var result = await client.GetAsync(url);
 
             string rawData = await result.Content.ReadAsStringAsync();
-            var model = JsonConvert.DeserializeObject<AccountsModel>(rawData);
-            
+            var model = JsonConvert.DeserializeObject<IbanityAccountsModel>(rawData);
+
 
             var data = model.Data.Select(x => new Account
             {
                 Id = x.Id,
-                AvailableBalance = x.Attributes.AvailableBalance,
                 Currency = x.Attributes.Currency,
-                Reference = x.Attributes.Reference,
-                ReferenceType = x.Attributes.ReferenceType,
-                FinantialInstitutionId = x.Relationships.FinancialInstitution.Data.Id,
+                BalancesConsent = new ConsentInfo { ConsentId = x.Id, ValidUntil = x.Attributes.AuthorizationExpirationExpectedAt },
+                TransactionsConsent = new ConsentInfo { ConsentId = x.Id, ValidUntil = x.Attributes.AuthorizationExpirationExpectedAt },
+                Iban = x.Attributes.Reference,
                 Description = x.Attributes.Description
             }).ToList();
 
             return new BankingResult<List<Account>>(ResultStatus.DONE, url, data, rawData);
         }
 
-        public async Task<BankingResult<Account>> GetAccount(string institutionId, string accountId)
+        public new async Task<BankingResult<BankingAccount>> DeleteAccountAsync(string accountId)
+        {
+            var result = await DeleteConsentAsync(accountId);
+            var data = result.GetData().FirstOrDefault();
+            return new BankingResult<BankingAccount>(ResultStatus.DONE, result.GetURL(), data, JsonConvert.SerializeObject(data));
+        }
+
+        public async Task<BankingResult<List<BankingAccount>>> DeleteConsentAsync(string consentId)
+        {
+            try
+            {
+                var data = new List<BankingAccount> { await GetAccount(consentId) };
+                var client = GetClient();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                client.DefaultRequestHeaders.Add("Authorization", _userContextLocal.Token);
+                var url = $"/xs2a/customer/financial-institutions/{_bankId}/accounts/{consentId}";
+                client.SignRequest(HttpMethod.Delete, url, _settings.SigningCertificate, _settings.AppClientId);
+                var result = await client.DeleteAsync(url);
+
+                return new BankingResult<List<BankingAccount>>(ResultStatus.DONE, url, data, JsonConvert.SerializeObject(data));
+            }
+            catch (ApiCallException e) { throw e; }
+            catch (ApiUnauthorizedException e) { throw e; }
+            catch (PagerException e) { throw e; }
+            catch (SdkUnauthorizedException e) { throw e; }
+            catch (Exception e)
+            {
+                await LogAsync(apiUrl, 500, "DELETE", e.ToString());
+                throw e;
+            }
+        }
+        private async Task<BankingAccount> GetAccount(string accountId)
         {
             var client = GetClient();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", _token);
-            string url = $"/xs2a/customer/financial-institutions/{institutionId}/accounts/{accountId}";
+            client.DefaultRequestHeaders.Add("Authorization", _userContextLocal.Token);
+            string url = $"/xs2a/customer/financial-institutions/{_bankId}/accounts/{accountId}";
             client.SignRequest(HttpMethod.Get, url, _settings.SigningCertificate, _settings.AppClientId);
             var result = await client.GetAsync(url);
 
             string rawData = await result.Content.ReadAsStringAsync();
             var model = JsonConvert.DeserializeObject<AccountModel>(rawData);
-            var data = new Account
+            return new BankingAccount
             {
-                Id = model.Data.Id,
-                AvailableBalance = model.Data.Attributes.AvailableBalance,
                 Currency = model.Data.Attributes.Currency,
-                Reference = model.Data.Attributes.Reference,
-                ReferenceType = model.Data.Attributes.ReferenceType,
-                FinantialInstitutionId = model.Data.Relationships.FinancialInstitution.Data.Id,
-                Description = model.Data.Attributes.Description
+                Iban = model.Data.Attributes.Reference,
             };
-            watch.Stop();
-            sdkApiConnector.Log(await GetSdkToken(), PrepareLog((int)watch.ElapsedMilliseconds, url, (int)result.StatusCode, Http.Get, requestedAt));
-
-            return new BankingResult<Account>(ResultStatus.DONE, url, data, rawData);
         }
         #endregion
 
-        #region Transactions
-        public async Task<BankingResult<List<Transaction>>> GetTransactions(string institutionId, string accountId, IPagerContext context = null)
+        #region Balances
+
+        public async Task<BankingResult<List<Balance>>> GetBalancesAsync(string accountId)
         {
-            var requestedAt = DateTime.UtcNow;
-            var watch = Stopwatch.StartNew();
+            var client = GetClient();
+            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            client.DefaultRequestHeaders.Add("Authorization", _userContextLocal.Token);
+            string url = $"/xs2a/customer/financial-institutions/{_bankId}/accounts/{accountId}";
+            client.SignRequest(HttpMethod.Get, url, _settings.SigningCertificate, _settings.AppClientId);
+            var result = await client.GetAsync(url);
+
+            string rawData = await result.Content.ReadAsStringAsync();
+            var model = JsonConvert.DeserializeObject<AccountModel>(rawData);
+            var currentBalance = new Balance
+            {
+                BalanceType = "current",
+                BalanceAmount = new BalanceAmount
+                {
+                    Amount = model.Data.Attributes.CurrentBalance,
+                    Currency = model.Data.Attributes.Currency
+                },
+                LastChangeDateTime = model.Data.Attributes.CurrentBalanceChangedAt,
+                ReferenceDate = model.Data.Attributes.CurrentBalanceReferenceDate
+            };
+            var availableBalance = new Balance
+            {
+                BalanceType = "available",
+                BalanceAmount = new BalanceAmount
+                {
+                    Amount = model.Data.Attributes.AvailableBalance,
+                    Currency = model.Data.Attributes.Currency
+                },
+                LastChangeDateTime = model.Data.Attributes.AvailableBalanceChangedAt,
+                ReferenceDate = model.Data.Attributes.AvailableBalanceReferenceDate
+            };
+
+            return new BankingResult<List<Balance>>(ResultStatus.DONE, url, new List<Balance> { currentBalance, availableBalance }, rawData);
+        }
+
+        #endregion
+
+        #region Transactions
+        public async Task<BankingResult<List<Transaction>>> GetTransactionsAsync(string accountId, IPagerContext context = null)
+        {
             IbanityPagerContext pagerContext = (context as IbanityPagerContext) ?? new IbanityPagerContext();
             var client = GetClient();
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", _token);
-            string url = $"/xs2a/customer/financial-institutions/{institutionId}/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
-            client.SignRequest(HttpMethod.Get, url, _certificatePath, _certificatePassword, _keyId);
+            client.DefaultRequestHeaders.Add("Authorization", _userContextLocal.Token);
+            string url = $"/xs2a/customer/financial-institutions/{_bankId}/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
+            client.SignRequest(HttpMethod.Get, url, _settings.SigningCertificate, _settings.AppClientId);
             var result = await client.GetAsync(url);
 
-            if (!result.IsSuccessStatusCode)
-            {
-                watch.Stop();
-                sdkApiConnector.Log(await GetSdkToken(), PrepareLog((int)watch.ElapsedMilliseconds, url, (int)result.StatusCode, Http.Get, requestedAt));
-                throw new ApiCallException(await result.Content.ReadAsStringAsync());
-            }
-
             string rawData = await result.Content.ReadAsStringAsync();
-            var model = JsonConvert.DeserializeObject<TransactionsModel>(rawData);
+            var model = JsonConvert.DeserializeObject<IbanityTransactionsModel>(rawData);
             pagerContext.SetBefore(model.Meta.Paging.Before);
             switch (pagerContext.GetDirection())
             {
@@ -293,53 +381,15 @@ namespace BankingSDK.Base.Ibanity
                 ExecutionDate = x.attributes.executionDate,
                 ValueDate = x.attributes.valueDate
             }).ToList();
-            watch.Stop();
-            sdkApiConnector.Log(await GetSdkToken(), PrepareLog((int)watch.ElapsedMilliseconds, url, (int)result.StatusCode, Http.Get, requestedAt));
 
             return new BankingResult<List<Transaction>>(ResultStatus.DONE, url, data, rawData, pagerContext);
         }
 
-        public async Task<BankingResult<Transaction>> GetTransaction(string institutionId, string accountId, string transactionId)
-        {
-            var requestedAt = DateTime.UtcNow;
-            var watch = Stopwatch.StartNew();
-            var client = GetClient();
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", _token);
-            string url = $"/xs2a/customer/financial-institutions/{institutionId}/accounts/{accountId}/transactions/{transactionId}";
-            client.SignRequest(HttpMethod.Get, url, _certificatePath, _certificatePassword, _keyId);
-            var result = await client.GetAsync(url);
-
-            if (!result.IsSuccessStatusCode)
-            {
-                watch.Stop();
-                sdkApiConnector.Log(await GetSdkToken(), PrepareLog((int)watch.ElapsedMilliseconds, url, (int)result.StatusCode, Http.Get, requestedAt));
-                throw new ApiCallException(await result.Content.ReadAsStringAsync());
-            }
-
-            string rawData = await result.Content.ReadAsStringAsync();
-            var model = JsonConvert.DeserializeObject<TransactionModel>(rawData);
-
-            var data = new Transaction
-            {
-                Id = model.Data.id,
-                Amount = model.Data.attributes.amount,
-                CounterpartReference = model.Data.attributes.counterpartReference,
-                Currency = model.Data.attributes.currency,
-                Description = model.Data.attributes.description,
-                ExecutionDate = model.Data.attributes.executionDate,
-                ValueDate = model.Data.attributes.valueDate
-            };
-            watch.Stop();
-            sdkApiConnector.Log(await GetSdkToken(), PrepareLog((int)watch.ElapsedMilliseconds, url, (int)result.StatusCode, Http.Get, requestedAt));
-
-            return new BankingResult<Transaction>(ResultStatus.DONE, url, data, rawData);
-        }
         #endregion
 
         #region Payment
 
-        public async Task<BankingResult<string>> CreatePaymentInitiationRequest(PaymentInitiationRequest model)
+        public async Task<BankingResult<string>> CreatePaymentInitiationRequestAsync(PaymentInitiationRequest model)
         {
             var paymentRequest = new IbanityPaymentInitiationRequest
             {
@@ -349,14 +399,14 @@ namespace BankingSDK.Base.Ibanity
                     Attributes = new IbanityPaymentInitiationAttributes
                     {
                         RedirectUri = $"{model.RedirectUrl}?flowId={model.FlowId}",
-                        ConsentReference = model.ConsentReference,
+                        ConsentReference = model.FlowId,
                         ProductType = "sepa-credit-transfer",
                         //RemittanceInformation="payment",
                         RemittanceInformationType = "unstructured",
                         RequestedExecutionDate = DateTime.UtcNow,
                         Currency = model.Currency,
                         Amount = model.Amount,
-                        //DebtorName = "Delmer Hermann",
+                        DebtorName = model.Debtor.Name,
                         DebtorAccountReference = model.Debtor.Iban,
                         DebtorAccountReferenceType = "IBAN",
                         CreditorName = model.Recipient.Name,
@@ -371,34 +421,93 @@ namespace BankingSDK.Base.Ibanity
                 }
             };
 
-            var result = await CreatePaymentInitiationRequest(model.FinancialInstitutionId, paymentRequest, watch, requestedAt);
 
-            return new BankingResult<string>(ResultStatus.REDIRECT, string.Join("\n", accountResult.GetURL(), result.GetURL()), result.GetData().Data.Links.Redirect, result.GetRawResponse());
-        }
-
-        private async Task<BankingResult<PaymentInitiationModel>> CreatePaymentInitiationRequest(string institutionId, PaymentInitiation model, Stopwatch watch, DateTime requestedAt)
-        {
-            var content = new StringContent(JsonConvert.SerializeObject(model), Encoding.UTF8, "application/json");
+            var content = new StringContent(JsonConvert.SerializeObject(paymentRequest), Encoding.UTF8, "application/json");
             var client = GetClient(await content.ReadAsStringAsync());
             client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            client.DefaultRequestHeaders.Add("Authorization", _token);
-            var url = $"/customer/financial-institutions/{institutionId}/payment-initiation-requests";
+            client.DefaultRequestHeaders.Add("Authorization", _userContextLocal.Token);
+            var url = $"/customer/financial-institutions/{_bankId}/payment-initiation-requests";
             client.SignRequest(HttpMethod.Post, url, _settings.SigningCertificate, _settings.AppClientId);
             var result = await client.PostAsync(url, content);
 
-            if (!result.IsSuccessStatusCode)
-            {
-                watch.Stop();
-                sdkApiConnector.Log(await GetSdkToken(), PrepareLog((int)watch.ElapsedMilliseconds, url, (int)result.StatusCode, Http.Get, requestedAt));
-                throw new ApiCallException(await result.Content.ReadAsStringAsync());
-            }
-
             var rawData = await result.Content.ReadAsStringAsync();
-            watch.Stop();
-            sdkApiConnector.Log(await GetSdkToken(), PrepareLog((int)watch.ElapsedMilliseconds, url, (int)result.StatusCode, Http.Get, requestedAt, model.Data.Attributes.Amount));
+            var data = JsonConvert.DeserializeObject<IbanityPaymentInitiationModel>(rawData);
 
-            return new BankingResult<PaymentInitiationModel>(ResultStatus.DONE, url, JsonConvert.DeserializeObject<PaymentInitiationModel>(rawData), rawData);
+            var flowContext = new FlowContext
+            {
+                Id = model.FlowId,
+                ConnectorType = ConnectorType,
+                FlowType = FlowType.Payment,
+                RedirectUrl = model.RedirectUrl,
+                PaymentProperties = new PaymentProperties
+                {
+                    PaymentId = data.Data.Id
+                }
+            };
+
+            return new BankingResult<string>(ResultStatus.REDIRECT, url, data.Data.Links.Redirect, data.Data.Links.Redirect, flowContext: flowContext);
         }
+
+        public async Task<BankingResult<PaymentStatus>> CreatePaymentInitiationRequestFinalizeAsync(FlowContext flowContext, string queryString)
+        {
+            try
+            {
+                var query = HttpUtility.ParseQueryString(queryString);
+                var error = query.Get("error");
+                if (error != null)
+                {
+                    throw new ApiCallException(query.Get("error_description"));
+                }
+
+                var client = GetClient();
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                var url = $"/xs2a/customer/financial-institutions/{_bankId}/payment-initiation-requests/{flowContext.PaymentProperties.PaymentId}";
+                client.SignRequest(HttpMethod.Get, url, _settings.SigningCertificate, _settings.AppClientId);
+                var result = await client.GetAsync(url);
+
+                var rawData = await result.Content.ReadAsStringAsync();
+                var paymentResult = JsonConvert.DeserializeObject<IbanityPaymentInitiationModel>(rawData);
+
+                var data = new PaymentStatus
+                {
+                    Amount = new BankingAccountInstructedAmount
+                    {
+                        Amount = paymentResult.Data.Attributes.Amount,
+                        Currency = paymentResult.Data.Attributes.Currency
+                    },
+                    Creditor = new BankingAccount
+                    {
+                        Iban = paymentResult.Data.Attributes.CreditorAccountReference,
+                        Currency = paymentResult.Data.Attributes.Currency
+                    },
+                    CreditorName = paymentResult.Data.Attributes.CreditorName,
+                    Debtor = new BankingAccount
+                    {
+                        Iban = paymentResult.Data.Attributes.DebtorAccountReference,
+                        Currency = paymentResult.Data.Attributes.Currency
+                    },
+                    EndToEndIdentification = paymentResult.Data.Attributes.EndToEndId,
+                    //Status = paymentResult.Data.Attributes.Status
+                };
+
+                return new BankingResult<PaymentStatus>(ResultStatus.DONE, url, data, rawData);
+            }
+            catch (ApiCallException e) { throw e; }
+            catch (ApiUnauthorizedException e) { throw e; }
+            catch (PagerException e) { throw e; }
+            catch (SdkUnauthorizedException e) { throw e; }
+            catch (Exception e)
+            {
+                await LogAsync(apiUrl, 500, Http.Get, e.ToString());
+                throw e;
+            }
+        }
+
+        public async Task<BankingResult<PaymentStatus>> CreatePaymentInitiationRequestFinalizeAsync(string flowContextJson, string queryString)
+        {
+            return await CreatePaymentInitiationRequestFinalizeAsync(JsonConvert.DeserializeObject<FlowContext>(flowContextJson), queryString);
+        }
+
         #endregion
 
         #region Pager Context

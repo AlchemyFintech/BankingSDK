@@ -11,6 +11,7 @@ namespace BankingSDK.Base.Ibanity.Contexts
     public class IbanityUserContext : IUserContext
     {
         public string UserId { get; set; }
+        public Guid ContextId { get; set; }
         public string Token { get; set; }
         public List<UserAccount> Accounts { get; set; } = new List<UserAccount>();
         List<BaseUserAccount> IUserContext.Accounts { get => Accounts.Cast<BaseUserAccount>().ToList(); set => Accounts = value.Cast<UserAccount>().ToList(); }

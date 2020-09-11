@@ -42,7 +42,7 @@ namespace BankingSDK.BE.Puilaetco
             }
         }
 
-        public BePuilaetcoConnector(BankSettings settings) : base(settings, ConnectorType.BE_PUILAETCO_DEWAAY)
+        public BePuilaetcoConnector(BankSettings settings) : base(settings, ConnectorType.UNKNOWN/*BE_PUILAETCO_DEWAAY*/)
         {
 
         }

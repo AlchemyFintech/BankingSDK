@@ -14,6 +14,7 @@ using BankingSDK.Common.Models.Request;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -30,7 +31,7 @@ namespace BankingSDK.Base.BerlinGroup
     {
         private readonly Uri _sandboxUrl;
         private readonly Uri _productionUrl;
-        private BerlinGroupUserContext _userContextLocal => (BerlinGroupUserContext)_userContext;
+        private BerlinGroupUserContext _userContextLocal => (BerlinGroupUserContext) _userContext;
 
         private Uri _url => SdkApiSettings.IsSandbox ? _sandboxUrl : _productionUrl;
 
@@ -44,13 +45,17 @@ namespace BankingSDK.Base.BerlinGroup
             }
         }
 
-        protected BaseBerlinGroupConnector(BankSettings settings, string sandboxUrl, string productionUrl, ConnectorType connectorType) : base(settings, connectorType)
+        protected BaseBerlinGroupConnector(BankSettings settings, string sandboxUrl, string productionUrl,
+            ConnectorType connectorType) : base(settings, connectorType)
         {
             _sandboxUrl = new Uri(sandboxUrl);
-            _productionUrl = SdkApiSettings.IsSandbox && string.IsNullOrEmpty(productionUrl) ? null : new Uri(productionUrl);
+            _productionUrl = SdkApiSettings.IsSandbox && string.IsNullOrEmpty(productionUrl)
+                ? null
+                : new Uri(productionUrl);
         }
 
         #region User
+
         public async Task<BankingResult<IUserContext>> RegisterUserAsync(string userId)
         {
             _userContext = new BerlinGroupUserContext
@@ -59,11 +64,14 @@ namespace BankingSDK.Base.BerlinGroup
             };
 
             UserContextChanged = false;
-            return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
+            return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext,
+                JsonConvert.SerializeObject(_userContext));
         }
+
         #endregion
 
         #region Accounts
+
         public RequestAccountsAccessOption GetRequestAccountsAccessOption()
         {
             return RequestAccountsAccessOption.Customizable;
@@ -79,18 +87,34 @@ namespace BankingSDK.Base.BerlinGroup
                     Currency = x.Currency,
                     Iban = x.Iban,
                     Description = x.Description,
-                    BalancesConsent = _userContextLocal.Consents.Where(y => y.ConsentId == x.BalancesConsentId).Select(c => new ConsentInfo { ConsentId = c.ConsentId, ValidUntil = c.ValidUntil }).FirstOrDefault(),
-                    TransactionsConsent = _userContextLocal.Consents.Where(y => y.ConsentId == x.TransactionsConsentId).Select(c => new ConsentInfo { ConsentId = c.ConsentId, ValidUntil = c.ValidUntil }).FirstOrDefault()
+                    BalancesConsent = _userContextLocal.Consents.Where(y => y.ConsentId == x.BalancesConsentId)
+                        .Select(c => new ConsentInfo {ConsentId = c.ConsentId, ValidUntil = c.ValidUntil})
+                        .FirstOrDefault(),
+                    TransactionsConsent = _userContextLocal.Consents.Where(y => y.ConsentId == x.TransactionsConsentId)
+                        .Select(c => new ConsentInfo {ConsentId = c.ConsentId, ValidUntil = c.ValidUntil})
+                        .FirstOrDefault()
                 }).ToList();
 
                 await LogAsync(_url, 200, Http.Get);
 
                 return new BankingResult<List<Account>>(ResultStatus.DONE, "", data, JsonConvert.SerializeObject(data));
             }
-            catch (ApiCallException e) { throw e; }
-            catch (ApiUnauthorizedException e) { throw e; }
-            catch (PagerException e) { throw e; }
-            catch (SdkUnauthorizedException e) { throw e; }
+            catch (ApiCallException e)
+            {
+                throw e;
+            }
+            catch (ApiUnauthorizedException e)
+            {
+                throw e;
+            }
+            catch (PagerException e)
+            {
+                throw e;
+            }
+            catch (SdkUnauthorizedException e)
+            {
+                throw e;
+            }
             catch (Exception e)
             {
                 await LogAsync(_url, 500, Http.Get, e.ToString());
@@ -117,9 +141,12 @@ namespace BankingSDK.Base.BerlinGroup
                 {
                     access = new BerlinGroupAccess
                     {
-                        allPsd2 = (model.TransactionAccounts == null && model.BalanceAccounts == null) ? "allAccounts" : null,
-                        balances = model.BalanceAccounts?.Select(x => new BerlinGroupAccountIban { iban = x }).ToList(),
-                        transactions = model.TransactionAccounts?.Select(x => new BerlinGroupAccountIban { iban = x }).ToList()
+                        allPsd2 = (model.TransactionAccounts == null && model.BalanceAccounts == null)
+                            ? "allAccounts"
+                            : null,
+                        balances = model.BalanceAccounts?.Select(x => new BerlinGroupAccountIban {iban = x}).ToList(),
+                        transactions = model.TransactionAccounts?.Select(x => new BerlinGroupAccountIban {iban = x})
+                            .ToList()
                     },
                     combinedServiceIndicator = false,
                     frequencyPerDay = model.FrequencyPerDay,
@@ -132,7 +159,8 @@ namespace BankingSDK.Base.BerlinGroup
                 var client = GetClient();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.Add("PSU-IP-Address", model.PsuIp);
-                client.DefaultRequestHeaders.Add("TPP-Redirect-URI", SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl);
+                client.DefaultRequestHeaders.Add("TPP-Redirect-URI",
+                    SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl);
                 var url = "/berlingroup/v1/consents";
                 var result = await client.PostAsync(url, content);
 
@@ -142,9 +170,13 @@ namespace BankingSDK.Base.BerlinGroup
                 string codeChallenge;
                 using (SHA256 sha256Hash = SHA256.Create())
                 {
-                    codeChallenge = Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier))).Split('=')[0].Replace("+", "-").Replace("/", "_");
+                    codeChallenge =
+                        Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier))).Split('=')
+                            [0].Replace("+", "-").Replace("/", "_");
                 }
-                var redirect = $"{accountAccessResult._links.scaOAuth.href}?scope=AIS:{accountAccessResult.consentId}&client_id={_settings.NcaId}&state={model.FlowId}&redirect_uri={WebUtility.UrlEncode(SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl)}&code_challenge={WebUtility.UrlEncode(codeChallenge)}&response_type=code&code_challenge_method=S256";
+
+                var redirect =
+                    $"{accountAccessResult._links.scaOAuth.href}?scope=AIS:{accountAccessResult.consentId}&client_id={_settings.NcaId}&state={model.FlowId}&redirect_uri={WebUtility.UrlEncode(SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl)}&code_challenge={WebUtility.UrlEncode(codeChallenge)}&response_type=code&code_challenge_method=S256";
 
                 var flowContext = new FlowContext
                 {
@@ -161,12 +193,25 @@ namespace BankingSDK.Base.BerlinGroup
                     }
                 };
 
-                return new BankingResult<string>(ResultStatus.REDIRECT, url, redirect, rawData, flowContext: flowContext);
+                return new BankingResult<string>(ResultStatus.REDIRECT, url, redirect, rawData,
+                    flowContext: flowContext);
             }
-            catch (ApiCallException e) { throw e; }
-            catch (ApiUnauthorizedException e) { throw e; }
-            catch (PagerException e) { throw e; }
-            catch (SdkUnauthorizedException e) { throw e; }
+            catch (ApiCallException e)
+            {
+                throw e;
+            }
+            catch (ApiUnauthorizedException e)
+            {
+                throw e;
+            }
+            catch (PagerException e)
+            {
+                throw e;
+            }
+            catch (SdkUnauthorizedException e)
+            {
+                throw e;
+            }
             catch (Exception e)
             {
                 await LogAsync(_url, 500, Http.Post, e.ToString());
@@ -174,7 +219,8 @@ namespace BankingSDK.Base.BerlinGroup
             }
         }
 
-        public async Task<BankingResult<IUserContext>> RequestAccountsAccessFinalizeAsync(FlowContext flowContext, string queryString)
+        public async Task<BankingResult<IUserContext>> RequestAccountsAccessFinalizeAsync(FlowContext flowContext,
+            string queryString)
         {
             try
             {
@@ -184,10 +230,13 @@ namespace BankingSDK.Base.BerlinGroup
                 {
                     throw new ApiCallException(query.Get("error_description"));
                 }
+
                 var code = query.Get("code");
                 var auth = await GetToken(code, flowContext.CodeVerifier);
-                var accounts = await GetAccountsAsync(flowContext.AccountAccessProperties.ConsentId, $"{auth.token_type} {auth.access_token}");
-                bool fullAccess = flowContext.AccountAccessProperties.BalanceAccounts == null && flowContext.AccountAccessProperties.TransactionAccounts == null;
+                var accounts = await GetAccountsAsync(flowContext.AccountAccessProperties.ConsentId,
+                    $"{auth.token_type} {auth.access_token}");
+                bool fullAccess = flowContext.AccountAccessProperties.BalanceAccounts == null &&
+                                  flowContext.AccountAccessProperties.TransactionAccounts == null;
 
                 _userContextLocal.Consents.Add(new BerlinGroupUserConsent
                 {
@@ -195,9 +244,7 @@ namespace BankingSDK.Base.BerlinGroup
                     ValidUntil = flowContext.AccountAccessProperties.ValidUntil,
                     RefreshToken = auth.refresh_token,
                     Token = auth.Token,
-                    // MAN 20200825 : we receive 3600 from bank but the accesstoken is only valid for around 20min...
-                    // TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60)
-                    TokenValidUntil = DateTime.Now.AddSeconds((20*60) - 60)
+                    TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60)
                 });
 
                 foreach (var account in accounts)
@@ -205,8 +252,16 @@ namespace BankingSDK.Base.BerlinGroup
                     var temp = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == account.resourceId);
                     if (temp != null)
                     {
-                        temp.BalancesConsentId = fullAccess || flowContext.AccountAccessProperties.BalanceAccounts.Any(y => account.iban == y) ? flowContext.AccountAccessProperties.ConsentId : temp.BalancesConsentId;
-                        temp.TransactionsConsentId = fullAccess || flowContext.AccountAccessProperties.TransactionAccounts.Any(y => account.iban == y) ? flowContext.AccountAccessProperties.ConsentId : temp.TransactionsConsentId;
+                        temp.BalancesConsentId =
+                            fullAccess ||
+                            flowContext.AccountAccessProperties.BalanceAccounts.Any(y => account.iban == y)
+                                ? flowContext.AccountAccessProperties.ConsentId
+                                : temp.BalancesConsentId;
+                        temp.TransactionsConsentId =
+                            fullAccess ||
+                            flowContext.AccountAccessProperties.TransactionAccounts.Any(y => account.iban == y)
+                                ? flowContext.AccountAccessProperties.ConsentId
+                                : temp.TransactionsConsentId;
                     }
                     else
                     {
@@ -216,8 +271,16 @@ namespace BankingSDK.Base.BerlinGroup
                             Iban = account.iban,
                             Currency = account.currency,
                             Description = account.name,
-                            BalancesConsentId = fullAccess || flowContext.AccountAccessProperties.BalanceAccounts.Any(y => account.iban == y) ? flowContext.AccountAccessProperties.ConsentId : null,
-                            TransactionsConsentId = fullAccess || flowContext.AccountAccessProperties.TransactionAccounts.Any(y => account.iban == y) ? flowContext.AccountAccessProperties.ConsentId : null
+                            BalancesConsentId =
+                                fullAccess ||
+                                flowContext.AccountAccessProperties.BalanceAccounts.Any(y => account.iban == y)
+                                    ? flowContext.AccountAccessProperties.ConsentId
+                                    : null,
+                            TransactionsConsentId =
+                                fullAccess ||
+                                flowContext.AccountAccessProperties.TransactionAccounts.Any(y => account.iban == y)
+                                    ? flowContext.AccountAccessProperties.ConsentId
+                                    : null
                         });
                     }
                 }
@@ -228,12 +291,25 @@ namespace BankingSDK.Base.BerlinGroup
                     RemoveConsent(consent);
                 }
 
-                return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext, JsonConvert.SerializeObject(_userContext));
+                return new BankingResult<IUserContext>(ResultStatus.DONE, null, _userContext,
+                    JsonConvert.SerializeObject(_userContext));
             }
-            catch (ApiCallException e) { throw e; }
-            catch (ApiUnauthorizedException e) { throw e; }
-            catch (PagerException e) { throw e; }
-            catch (SdkUnauthorizedException e) { throw e; }
+            catch (ApiCallException e)
+            {
+                throw e;
+            }
+            catch (ApiUnauthorizedException e)
+            {
+                throw e;
+            }
+            catch (PagerException e)
+            {
+                throw e;
+            }
+            catch (SdkUnauthorizedException e)
+            {
+                throw e;
+            }
             catch (Exception e)
             {
                 await LogAsync(_url, 500, Http.Get, e.ToString());
@@ -241,9 +317,11 @@ namespace BankingSDK.Base.BerlinGroup
             }
         }
 
-        public async Task<BankingResult<IUserContext>> RequestAccountsAccessFinalizeAsync(string flowContextJson, string queryString)
+        public async Task<BankingResult<IUserContext>> RequestAccountsAccessFinalizeAsync(string flowContextJson,
+            string queryString)
         {
-            return await RequestAccountsAccessFinalizeAsync(JsonConvert.DeserializeObject<FlowContext>(flowContextJson), queryString);
+            return await RequestAccountsAccessFinalizeAsync(JsonConvert.DeserializeObject<FlowContext>(flowContextJson),
+                queryString);
         }
 
         public async Task<BankingResult<List<BankingAccount>>> DeleteConsentAsync(string consentId)
@@ -256,20 +334,35 @@ namespace BankingSDK.Base.BerlinGroup
                 var result = await client.DeleteAsync(url);
 
                 var consent = _userContextLocal.Consents.FirstOrDefault(x => x.ConsentId == consentId);
-                var data = _userContextLocal.Accounts.Where(x => x.BalancesConsentId == consentId || x.TransactionsConsentId == consentId).Select(x => new BankingAccount
-                {
-                    Iban = x.Iban,
-                    Currency = x.Currency
-                }).ToList();
+                var data = _userContextLocal.Accounts
+                    .Where(x => x.BalancesConsentId == consentId || x.TransactionsConsentId == consentId).Select(x =>
+                        new BankingAccount
+                        {
+                            Iban = x.Iban,
+                            Currency = x.Currency
+                        }).ToList();
 
                 RemoveConsent(consent);
 
-                return new BankingResult<List<BankingAccount>>(ResultStatus.DONE, url, data, JsonConvert.SerializeObject(data));
+                return new BankingResult<List<BankingAccount>>(ResultStatus.DONE, url, data,
+                    JsonConvert.SerializeObject(data));
             }
-            catch (ApiCallException e) { throw e; }
-            catch (ApiUnauthorizedException e) { throw e; }
-            catch (PagerException e) { throw e; }
-            catch (SdkUnauthorizedException e) { throw e; }
+            catch (ApiCallException e)
+            {
+                throw e;
+            }
+            catch (ApiUnauthorizedException e)
+            {
+                throw e;
+            }
+            catch (PagerException e)
+            {
+                throw e;
+            }
+            catch (SdkUnauthorizedException e)
+            {
+                throw e;
+            }
             catch (Exception e)
             {
                 await LogAsync(_url, 500, "DELETE", e.ToString());
@@ -297,15 +390,21 @@ namespace BankingSDK.Base.BerlinGroup
             _userContextLocal.Consents.Remove(consent);
             UserContextChanged = true;
         }
+
         #endregion
 
         #region Balances
+
         public async Task<BankingResult<List<Balance>>> GetBalancesAsync(string accountId)
         {
             try
             {
-                var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ?? throw new ApiCallException("Invalide accountId");
-                var consent = _userContextLocal.Consents.FirstOrDefault(x => x.ConsentId == account.BalancesConsentId && x.ValidUntil > DateTime.Now) ?? throw new ApiCallException("Consent invalide or expired");
+                var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ??
+                              throw new ApiCallException("Invalide accountId");
+                var consent =
+                    _userContextLocal.Consents.FirstOrDefault(x =>
+                        x.ConsentId == account.BalancesConsentId && x.ValidUntil > DateTime.Now) ??
+                    throw new ApiCallException("Consent invalide or expired");
                 var client = GetClient();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.Add("Consent-ID", consent.ConsentId);
@@ -313,6 +412,7 @@ namespace BankingSDK.Base.BerlinGroup
                 {
                     await RefreshToken(consent);
                 }
+
                 client.DefaultRequestHeaders.Add("Authorization", consent.Token);
                 var url = $"/berlingroup/v1/accounts/{accountId}/balances";
                 var result = await client.GetAsync(url);
@@ -334,26 +434,46 @@ namespace BankingSDK.Base.BerlinGroup
 
                 return new BankingResult<List<Balance>>(ResultStatus.DONE, url, data, rawData);
             }
-            catch (ApiCallException e) { throw e; }
-            catch (ApiUnauthorizedException e) { throw e; }
-            catch (PagerException e) { throw e; }
-            catch (SdkUnauthorizedException e) { throw e; }
+            catch (ApiCallException e)
+            {
+                throw e;
+            }
+            catch (ApiUnauthorizedException e)
+            {
+                throw e;
+            }
+            catch (PagerException e)
+            {
+                throw e;
+            }
+            catch (SdkUnauthorizedException e)
+            {
+                throw e;
+            }
             catch (Exception e)
             {
                 await LogAsync(_url, 500, Http.Get, e.ToString());
                 throw e;
             }
         }
+
         #endregion
 
         #region Transactions
-        public async Task<BankingResult<List<Transaction>>> GetTransactionsAsync(string accountId, IPagerContext context = null)
+
+        public async Task<BankingResult<List<Transaction>>> GetTransactionsAsync(string accountId,
+            IPagerContext context = null)
         {
             try
             {
-                var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ?? throw new ApiCallException("Invalide accountId");
-                var consent = _userContextLocal.Consents.FirstOrDefault(x => x.ConsentId == account.BalancesConsentId && x.ValidUntil > DateTime.Now) ?? throw new ApiCallException("Consent invalide or expired");
-                BerlinGroupPagerContext pagerContext = (context as BerlinGroupPagerContext) ?? new BerlinGroupPagerContext();
+                var account = _userContextLocal.Accounts.FirstOrDefault(x => x.Id == accountId) ??
+                              throw new ApiCallException("Invalide accountId");
+                var consent =
+                    _userContextLocal.Consents.FirstOrDefault(x =>
+                        x.ConsentId == account.BalancesConsentId && x.ValidUntil > DateTime.Now) ??
+                    throw new ApiCallException("Consent invalide or expired");
+                BerlinGroupPagerContext pagerContext =
+                    (context as BerlinGroupPagerContext) ?? new BerlinGroupPagerContext();
 
                 var client = GetClient();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -363,6 +483,7 @@ namespace BankingSDK.Base.BerlinGroup
                 {
                     await RefreshToken(consent);
                 }
+
                 dump = JsonConvert.SerializeObject(_userContextLocal);
                 client.DefaultRequestHeaders.Add("Authorization", consent.Token);
                 var url = $"/berlingroup/v1/accounts/{accountId}/transactions{pagerContext.GetRequestParams()}";
@@ -371,13 +492,28 @@ namespace BankingSDK.Base.BerlinGroup
                 string rawData = await result.Content.ReadAsStringAsync();
                 var model = JsonConvert.DeserializeObject<BerlinGroupTransactionsModelDto>(rawData);
                 pagerContext.SetPage(pagerContext.GetNextPage());
-                pagerContext.SetPageTotal(model.transactions.PageTotal);
+                var last = model.transactions?._links?.last?.href;
+                if (last != null)
+                {
+                    Uri myUri = new Uri(last);
+                    string lastPageIndexStr = HttpUtility.ParseQueryString(myUri.Query).Get("page");
+                    if (lastPageIndexStr != null)
+                    {
+                        int lastPageIndex;
+                        if (int.TryParse(lastPageIndexStr, out lastPageIndex))
+                        {
+                            pagerContext.SetPageTotal((uint)lastPageIndex);
+                        }
+                    }
+                }
 
                 var data = model.transactions.all.Select(x => new Transaction
                 {
                     Id = x.transactionId,
                     Amount = x.transactionAmount.amount,
-                    CounterpartReference = (x.transactionAmount.amount >= 0) ? x.debtorAccount?.iban : x.creditorAccount?.iban,
+                    CounterpartReference = (x.transactionAmount.amount >= 0)
+                        ? x.debtorAccount?.iban
+                        : x.creditorAccount?.iban,
                     CounterpartName = (x.transactionAmount.amount >= 0) ? x.debtorName : x.creditorName,
                     Currency = x.transactionAmount.currency,
                     Description = x.remittanceInformationUnstructured,
@@ -387,19 +523,33 @@ namespace BankingSDK.Base.BerlinGroup
 
                 return new BankingResult<List<Transaction>>(ResultStatus.DONE, url, data, rawData, pagerContext);
             }
-            catch (ApiCallException e) { throw e; }
-            catch (ApiUnauthorizedException e) { throw e; }
-            catch (PagerException e) { throw e; }
-            catch (SdkUnauthorizedException e) { throw e; }
+            catch (ApiCallException e)
+            {
+                throw e;
+            }
+            catch (ApiUnauthorizedException e)
+            {
+                throw e;
+            }
+            catch (PagerException e)
+            {
+                throw e;
+            }
+            catch (SdkUnauthorizedException e)
+            {
+                throw e;
+            }
             catch (Exception e)
             {
                 await LogAsync(_url, 500, Http.Get, e.ToString());
                 throw e;
             }
         }
+
         #endregion
 
         #region Payment
+
         public async Task<BankingResult<string>> CreatePaymentInitiationRequestAsync(PaymentInitiationRequest model)
         {
             var validate = model.Validate();
@@ -426,12 +576,14 @@ namespace BankingSDK.Base.BerlinGroup
                     requestedExecutionDate = model.RequestedExecutionDate?.ToString("yyyy-MM-dd")
                 };
 
-                var content = new StringContent(JsonConvert.SerializeObject(paymentRequest), Encoding.UTF8, "application/json");
+                var content = new StringContent(JsonConvert.SerializeObject(paymentRequest), Encoding.UTF8,
+                    "application/json");
                 var client = GetClient();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.Add("TPP-Explicit-Authorisation-Preferred", "false");
                 client.DefaultRequestHeaders.Add("PSU-IP-Address", model.PsuIp);
-                client.DefaultRequestHeaders.Add("TPP-Redirect-URI", SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl);
+                client.DefaultRequestHeaders.Add("TPP-Redirect-URI",
+                    SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl);
                 var url = $"/berlingroup/v1/payments/sepa-credit-transfers";
                 var result = await client.PostAsync(url, content);
 
@@ -441,9 +593,12 @@ namespace BankingSDK.Base.BerlinGroup
                 string codeChallenge;
                 using (SHA256 sha256Hash = SHA256.Create())
                 {
-                    codeChallenge = Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier)));
+                    codeChallenge =
+                        Convert.ToBase64String(sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(codeVerifier)));
                 }
-                var redirect = $"{paymentResult._links.scaOAuth.href}?scope=PIS:{paymentResult.paymentId}&client_id={_settings.NcaId}&state=test&redirect_uri={(SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl)}&code_challenge={WebUtility.UrlEncode(codeChallenge)}&response_type=code&code_challenge_method=S256";
+
+                var redirect =
+                    $"{paymentResult._links.scaOAuth.href}?scope=PIS:{paymentResult.paymentId}&client_id={_settings.NcaId}&state=test&redirect_uri={(SdkApiSettings.IsSandbox ? "http://localhost" : model.RedirectUrl)}&code_challenge={WebUtility.UrlEncode(codeChallenge)}&response_type=code&code_challenge_method=S256";
 
 
                 var flowContext = new FlowContext
@@ -459,12 +614,25 @@ namespace BankingSDK.Base.BerlinGroup
                     }
                 };
 
-                return new BankingResult<string>(ResultStatus.REDIRECT, url, redirect, rawData, flowContext: flowContext);
+                return new BankingResult<string>(ResultStatus.REDIRECT, url, redirect, rawData,
+                    flowContext: flowContext);
             }
-            catch (ApiCallException e) { throw e; }
-            catch (ApiUnauthorizedException e) { throw e; }
-            catch (PagerException e) { throw e; }
-            catch (SdkUnauthorizedException e) { throw e; }
+            catch (ApiCallException e)
+            {
+                throw e;
+            }
+            catch (ApiUnauthorizedException e)
+            {
+                throw e;
+            }
+            catch (PagerException e)
+            {
+                throw e;
+            }
+            catch (SdkUnauthorizedException e)
+            {
+                throw e;
+            }
             catch (Exception e)
             {
                 await LogAsync(_url, 500, Http.Post, e.ToString());
@@ -472,7 +640,8 @@ namespace BankingSDK.Base.BerlinGroup
             }
         }
 
-        public async Task<BankingResult<PaymentStatus>> CreatePaymentInitiationRequestFinalizeAsync(FlowContext flowContext, string queryString)
+        public async Task<BankingResult<PaymentStatus>> CreatePaymentInitiationRequestFinalizeAsync(
+            FlowContext flowContext, string queryString)
         {
             try
             {
@@ -515,10 +684,22 @@ namespace BankingSDK.Base.BerlinGroup
 
                 return new BankingResult<PaymentStatus>(ResultStatus.DONE, url, data, rawData);
             }
-            catch (ApiCallException e) { throw e; }
-            catch (ApiUnauthorizedException e) { throw e; }
-            catch (PagerException e) { throw e; }
-            catch (SdkUnauthorizedException e) { throw e; }
+            catch (ApiCallException e)
+            {
+                throw e;
+            }
+            catch (ApiUnauthorizedException e)
+            {
+                throw e;
+            }
+            catch (PagerException e)
+            {
+                throw e;
+            }
+            catch (SdkUnauthorizedException e)
+            {
+                throw e;
+            }
             catch (Exception e)
             {
                 await LogAsync(_url, 500, Http.Get, e.ToString());
@@ -526,13 +707,17 @@ namespace BankingSDK.Base.BerlinGroup
             }
         }
 
-        public async Task<BankingResult<PaymentStatus>> CreatePaymentInitiationRequestFinalizeAsync(string flowContextJson, string queryString)
+        public async Task<BankingResult<PaymentStatus>> CreatePaymentInitiationRequestFinalizeAsync(
+            string flowContextJson, string queryString)
         {
-            return await CreatePaymentInitiationRequestFinalizeAsync(JsonConvert.DeserializeObject<FlowContext>(flowContextJson), queryString);
+            return await CreatePaymentInitiationRequestFinalizeAsync(
+                JsonConvert.DeserializeObject<FlowContext>(flowContextJson), queryString);
         }
+
         #endregion
 
         #region Pager
+
         public IPagerContext RestorePagerContext(string json)
         {
             return JsonConvert.DeserializeObject<BerlinGroupPagerContext>(json);
@@ -542,14 +727,16 @@ namespace BankingSDK.Base.BerlinGroup
         {
             return new BerlinGroupPagerContext(limit);
         }
+
         #endregion
 
         #region Private
 
         private async Task<BerlinGroupAccessData> GetToken(string authorizationCode, string codeVerifier)
         {
-            var content = new StringContent($"client_id={_settings.NcaId}&code={authorizationCode}&code_verifier={WebUtility.UrlEncode(codeVerifier)}&grant_type=authorization_code&redirect_uri=http://localhosta",
-                   Encoding.UTF8, "application/x-www-form-urlencoded");
+            var content = new StringContent(
+                $"client_id={_settings.NcaId}&code={authorizationCode}&code_verifier={WebUtility.UrlEncode(codeVerifier)}&grant_type=authorization_code&redirect_uri=http://localhosta",
+                Encoding.UTF8, "application/x-www-form-urlencoded");
             var client = GetClient();
             var result = await client.PostAsync($"/berlingroup/v1/token", content);
 
@@ -559,16 +746,15 @@ namespace BankingSDK.Base.BerlinGroup
 
         private async Task RefreshToken(BerlinGroupUserConsent consent)
         {
-            var content = new StringContent($"client_id={_settings.NcaId}&refresh_token={consent.RefreshToken}&grant_type=refresh_token",
-                   Encoding.UTF8, "application/x-www-form-urlencoded");
+            var content = new StringContent(
+                $"client_id={_settings.NcaId}&refresh_token={consent.RefreshToken}&grant_type=refresh_token",
+                Encoding.UTF8, "application/x-www-form-urlencoded");
             var client = GetClient();
             var result = await client.PostAsync($"/berlingroup/v1/token", content);
 
             var auth = JsonConvert.DeserializeObject<BerlinGroupAccessData>(await result.Content.ReadAsStringAsync());
             consent.Token = auth.Token;
-            // MAN 20200825 : we receive 3600 from bank but the accesstoken is only valid for around 20min...
-            // consent.TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60);
-            consent.TokenValidUntil = DateTime.Now.AddSeconds((20*60) - 60);
+            consent.TokenValidUntil = DateTime.Now.AddSeconds(auth.expires_in - 60);
             UserContextChanged = true;
         }
 
@@ -579,6 +765,7 @@ namespace BankingSDK.Base.BerlinGroup
 
             return client;
         }
+
         #endregion
     }
 }

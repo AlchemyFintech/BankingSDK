@@ -15,11 +15,11 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
         [JsonProperty]
         private uint nextPage;
         [JsonProperty]
-        private uint totalPage;
+        private uint? totalPage;
         [JsonProperty]
         private uint? total;
 
-        public BerlinGroupPagerContext() : this(10)
+        public BerlinGroupPagerContext() : this(25)
         {
         }
 
@@ -41,6 +41,11 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
 
         public bool IsLastPage()
         {
+            if (totalPage == null)
+            {
+                return false;
+            }
+            
             return page == totalPage;
         }
 
@@ -63,22 +68,7 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
 
         public void SetLimit(byte limit)
         {
-            if (limit < 1)
-            {
-                this.limit = 1;
-            }
-            else
-            {
-                if (limit > 99)
-                {
-                    this.limit = 99;
-                }
-                else
-                {
-                    this.limit = limit;
-                }
-            }
-
+            this.limit = 25;
             page = 0;
             nextPage = 0;
         }
@@ -115,7 +105,10 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
 
         public string GetRequestParams()
         {
-            return $"?dateFrom=1980-01-01&bookingStatus=both&size={limit}&page={nextPage}";
+            DateTime dateFrom = DateTime.UtcNow.AddDays(-90);
+            string query =
+                $"?dateFrom={dateFrom:yyyy-MM-dd}&bookingStatus=both&page={nextPage}"; 
+            return query;
             // return $"?dateFrom=1980-01-01&bookingStatus=both";
         }
 
@@ -131,12 +124,26 @@ namespace BankingSDK.Base.BerlinGroup.Contexts
 
         public uint? RecordCount()
         {
-            return total ?? totalPage * limit + 1;
+            if (total != null)
+            {
+                return total;
+            }
+
+            if (totalPage != null)
+            {
+                return totalPage * limit + 1;
+            }
+            
+            return null;
         }
 
         public uint? PageCount()
         {
-            return totalPage + 1;
+            if (totalPage != null)
+            {
+                return totalPage + 1;
+            }
+            return null;
         }
     }
 }
